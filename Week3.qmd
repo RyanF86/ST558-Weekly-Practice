@@ -35,4 +35,159 @@ editor: visual
 # dplyr::filter(iris, Species == "virginica")
 ```
 
-- 
+## Tidyverse Essentials
+
+- Tidyverse is a collection of packages meant to work together that have similar syntax
+- Tidyverse introduces a special kind of data frame called a **tibble**
+
+```{r}
+iris_tbl <- dplyr::as_tibble(iris)
+class(iris_tbl)
+```
+
+- Class includes a data frame, but also other things
+
+```{r}
+str(iris_tbl)
+```
+
+- Structure looks a lot like data frame
+
+```{r}
+iris_tbl
+```
+
+- Default printing of the tibble is more organized
+
+#### Tidyverse Packages:
+
+- **ggplot2** is a system for declaratively creating graphics, based on The Grammar of Graphics. You provide the data, tell ggplot2 how to map variables to aesthetics, what graphical primitives to use, and it takes care of the details
+
+- **dplyr** provides a grammar of data manipulation, providing a consistent set of verbs that solve the most common data manipulation challenges
+
+- **tidyr** provides a set of functions that help you get to tidy data. Tidy data is data with a consistent form: in brief, every variable goes in a column, and every column is a variable
+
+- **readr** provides a fast and friendly way to read rectangular data (like csv, tsv, and fwf). It is designed to flexibly parse many types of data found in the wild, while still cleanly failing when data unexpectedly changes
+
+- **purrr** enhances R’s functional programming (FP) toolkit by providing a complete and consistent set of tools for working with functions and vectors. Once you master the basic concepts, purrr allows you to replace many for loops with code that is easier to write and more expressive
+
+- **tibble** is a modern re-imagining of the data frame, keeping what time has proven to be effective, and throwing out what it has not. Tibbles are data.frames that are lazy and surly: they do less and complain more forcing you to confront problems earlier, typically leading to cleaner, more expressive code
+
+- **stringr** provides a cohesive set of functions designed to make working with strings as easy as possible. It is built on top of stringi, which uses the ICU C library to provide fast, correct implementations of common string manipulations
+
+- **forcats** provides a suite of useful tools that solve common problems with factors. R uses factors to handle categorical variables, variables that have a fixed and known set of possible values
+
+## Reading Delimited Data
+
+- Delimited, meaning data separated by a specific character like ',' or ' '
+
+- Load the tidyverse library into current session
+
+```{r}
+library(tidyverse)
+```
+
+- read_csv() requires a file argument, which can be a path to file, a connection, or literal data
+
+- Example reading a csv file from the web
+
+```{r}
+bike_details <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/bikeDetails.csv")
+```
+
+```{r}
+bike_details
+```
+
+- Note columns come with names and column types, which should be confirmed
+
+- When we subset a single column of a tibble, the result is a tibble. If we want the column as a vector, we can use \$ or pull() from dplyr.
+
+```{r}
+bike_details[1:10,"name"]
+```
+
+```{r}
+bike_details$name[1:10]
+```
+
+```{r}
+bike_details[1:10, ] |>
+  pull(name)
+```
+
+- read_csv() is for comma separated files that have comma as the delimeter. There is also read_tsv() for tabs, read_table() for spaces, read_csv2() for semi colons, read_fwf() for fixed width fields.
+
+- for other cases, uses read_delim(). Delimeter should be specified. Also if column names are not present in the file, set col_names = FALSE or col_names = c("First", "Second", "Third", ...)
+
+- Test with another data file
+
+```{r}
+ump_data <- read_delim("https://www4.stat.ncsu.edu/~online/datasets/umps2012.txt", 
+                       delim = ">",
+                       col_names = c("Year", "Month", "Day", "Home", "Away", "HPUmpire")
+)
+```
+
+```{r}
+ump_data
+```
+
+- For fixing dates, we will want to use the lubridate package and ymd() function
+
+- First create a column to store dates in, and give it some values
+
+```{r}
+ump_data$date <- ymd("2012-01-01")
+ump_data
+```
+
+- Now loop through all rows and construct date from the data with ymd() and data from the other columns
+
+```{r}
+for (i in 1:nrow(ump_data)){
+  ump_data$date[i] <- ymd(paste(ump_data$Year[i],
+                                ump_data$Month[i],
+                                ump_data$Day[i], 
+                                sep = "-"))
+}
+ump_data
+```
+
+## Reading Excel Data
+
+- we use the readxl package, which is not a default part of tinyverse so we need to load it
+
+```{r}
+library(readxl)
+```
+
+- Excel data has to be saved locally (no url). I'm putting it in a folder called DataFiles
+
+```{r}
+dry_bean_data <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx")
+dry_bean_data
+```
+
+- To look at specific sheets, use excel_sheets
+
+```{r}
+excel_sheets("DataFiles/Dry_Bean_Dataset.xlsx")
+```
+
+- Lets grab the second sheet
+
+```{r}
+citation_dry_bean_data <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx", 
+                            sheet = excel_sheets("DataFiles/Dry_Bean_Dataset.xlsx")[2])
+citation_dry_bean_data
+```
+
+- To read specific cells in a contiguous range:
+
+```{r}
+dry_bean_range <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx", 
+                   range = cell_cols("A:B")
+                   )
+dry_bean_range
+```
