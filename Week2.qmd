@@ -1,0 +1,574 @@
+---
+title: "Week #2"
+author: "Ryan Friedman"
+format: html
+editor: visual
+---
+
+## Vectors
+
+- Make a simple vector, then check structure and typeof:
+
+```{r}
+x <- c(1, 2, 3, 4, sqrt(2))
+x
+str(x)
+typeof(x)
+```
+
+- Make a vector of strings, then check structure and typeof:
+
+```{r}
+y <- c("fish", "chicken", "beef")
+y
+str(y)
+typeof(y)
+```
+
+- Combine the vectors, then check structure and typeof:
+
+```{r}
+z <- c(x,y)
+z
+str(z)
+typeof(z)
+```
+
+Note how the vector change (*coerces*) all elements to type "character"
+
+- sort() will put results in order
+
+```{r}
+z
+sort(z)
+```
+
+- Use seq() and its shortcuts to create vectors
+
+```{r}
+seq(from = 1, to = 6, by = 2) # from 1 to 6, counting by 2
+seq(1, 6, 2) # same thing
+seq(1, 4, length=5) # vector length 5, starting at 1 and ending at 4, evenly spaced
+seq(0, 100, length = 6) # 0 to 100 in 6 steps
+0:6 # shortcut for counting 0 to 6
+0:6*20 # scaling the shortcut by multiplication
+```
+
+- Use runif() ("random uniform number generator") to make a vector of random numbers.
+
+```{r}
+set.seed(42) # sets a seed for random numbers to ensure execution of this code doesn't change each time
+runif(4, 2, 3) # 4 random numbers, each between 2 and 3
+runif(6) # 6 random numbers, each between 0 and 1
+```
+
+- Vectors can have attributes, such as names for the elements
+
+```{r}
+u <- c("a" = 1, "b" = 2, "c" = 3)
+u
+attributes(u)
+names(u)
+```
+
+- Apply names
+
+```{r}
+names(x) = c("First", "Second", "Third", "Fourth")
+x
+```
+
+- Accessing elements of a vector
+
+```{r}
+letters # a built-in vector of all 26 letters
+letters[1] # the first element of the vector (counting start at 1)
+letters[1:4] # elements 1 through 4
+letters[u] # uses u=(1, 2, 3) from before as an indexing vector
+letters[-5] # negatives remove elements
+letters[-1*c(1, 2, 3, 5, 8, 12, 13)] # multiple negatives removing elements
+u # remember u is a vector with names
+u[c("a", "c")] # names can be used to access elements
+```
+
+- Factor vectors are created with factor() and are used when the elements are categorical data
+
+```{r}
+pets <- c("cat", "dog", "bird", "cat", "other", "bird", "bird", "other", "dog") # our data for pets as a list of categorical observations
+pets_factor <- factor(pets, levels = c("cat", "dog", "bird", "rodent", "other")) # associates the defined categorical levels with the pets data
+pets_factor
+str(pets_factor) # reveals that factors store values as integers, each associated with a level
+```
+
+- Levels need to align with the values in the data but we can use Labels to have different values show
+
+```{r}
+pets_factor <- factor(pets,
+               levels = c("cat", "dog", "bird", "rodent", "other"),
+               labels = c("Meow", "Woof", "Tweet", "Sniff", "zzzzz"))
+pets_factor
+```
+
+- as.factor() is a shortcut to convert to factor vector, but only uses the levels visible
+
+```{r}
+pets_factor <- as.factor(pets) # makes factor vector from all levels observed in pets
+pets_factor # notice rodent gets skipped
+levels(pets_factor) <- c(levels(pets_factor), "rodent") # here rodent is manually added in afterwards
+pets_factor
+```
+
+## Matrices
+
+- Matrices are homogenous, containing vectors of the same type and length. Each column of the matrix is a vector. We can also think of matrix as a long vector we give dimensions to
+
+- Create a matrix
+
+```{r}
+matrix(data = NA, 
+       nrow = 1, 
+       ncol = 1, 
+       byrow = FALSE,
+       dimnames = NULL) # syntax
+my_mat <- matrix (c(1,3,4,-1,5,6),
+                  nrow = 3,)  # If only nrow is provided, ncol is inferred
+my_mat # note how data fills the colummns one at a time, but this can be changed with byrow.
+```
+
+- Coerce the matrix back into a vector
+
+```{r}
+as.vector(my_mat)
+```
+
+- If we under-fill a matrix with not enough data, we'll get a warning and the data repeats
+
+```{r}
+matrix(c(x, y, z), ncol = 3)
+```
+
+- Subset a matrix from dataframe Iris
+
+```{r}
+my_iris <- as.matrix(iris[, 1:4]) # takes all rows, and columns 1:4 of Iris and converts to a matrix
+head(my_iris) # shows the beginning rows of the new matrix
+```
+
+- Manually reassigning names to the rows and columns using list()
+
+```{r}
+dimnames(my_iris) <- list(
+  1:150, #first list element is a vector for the row names
+  c("Sepal Length", "Sepal Width", "Petal Length", "Petal Width") #second element is a vector for column names
+)
+head(my_iris)
+```
+
+- We can also assign names when a matrix is created
+
+```{r}
+my_mat3 <- matrix(c(runif(10), 
+                    rnorm(10),
+                    rgamma(10, shape = 1, scale = 1)),
+                  ncol = 3,
+                  dimnames = list(1:10, c("Uniform", "Normal", "Gamma")))
+my_mat3
+```
+
+- Accessing elements of a matrix using \[\]
+
+```{r}
+mat <- matrix(c(1:4, 20:17), ncol = 2)
+mat
+mat[2, 2]
+```
+
+- Arrays are n-dimensional matrices
+
+```{r}
+my_array <- array(1:24, dim = c(4, 2, 3))
+my_array
+```
+
+## Data Frames
+
+- A data frame is a list of vectors of the same length. The vectors can be different types.
+- Create a data frame using the data.frame() function
+
+```{r}
+x <- c("a", "b", "c", "d", "e", "f")
+y <- c(1, 3, 4, -1, 5, 6)
+z <- 10:15
+my_df <- data.frame(x, y, z) # combines three equal length vectors of different types
+my_df
+```
+
+- Data frames take on the column names of the variables we use, but we can also set the names as we create the dataframe
+
+```{r}
+my_df <- data.frame(char = x, data1 = y, data2 = z)
+my_df
+```
+
+- We can access elements of a data frame just like a matrix
+
+```{r}
+iris[1:4, 2:4] #returns a data frame
+```
+
+- If we access a single column, it can return a vector or a data frame, depending on whether drop=FALSE is used
+
+```{r}
+iris[1:10, 1] #returns a vector
+```
+
+```{r}
+iris[1:10, 1, drop = FALSE] #return a data frame
+```
+
+- We can also call the \[ function as a prefix function like this:
+
+```{r}
+`[`(iris, 1:10, 1, drop = FALSE)
+```
+
+- Column names can be used for subsetting in place of the column numbers
+
+```{r}
+iris[1:5 , c("Sepal.Length", "Species")] # will just select those columns named
+```
+
+- Use \$ to access a single column, or do it with \[\]
+
+```{r}
+iris$Sepal.Length
+iris[,"Sepal.Length"]
+```
+
+- Check names of the columns using colnames()
+
+```{r}
+colnames(iris)
+```
+
+## Lists
+
+- Use list() to construct from any objects of any type or size
+
+```{r}
+my_list <- list(My_Data_Frame = my_df, Norm_Vals = rnorm(4), Punctuation = c("!", "?"))
+my_list
+str(my_list)
+```
+
+- Access list elements as a sub-list using \[\]. \[\[\]\] will return the element not as a list
+
+```{r}
+my_list[2]
+my_list[[2]]
+my_list[[2]][1:3] # selects the second item of the list as a vector, then shows 1:3 of that vector
+```
+
+- Note: Technically a data frame is considered a list
+
+```{r}
+typeof(my_df)
+is.data.frame(my_df)
+is.list(my_df)
+```
+
+## Control Flow: Logicals & if/then/else
+
+- Logical Statements for comparison will return TRUE or FALSE
+
+```{r}
+"hi" == "hi"
+"Hi" == "hi" # string equivalence must be exact
+4 >= 3
+3 != 4
+TRUE == 1 # TRUE and 1 are equivalent
+sqrt(3)^2 == 3 # returns FALSE due to loss of precision
+dplyr::near(sqrt(3)^2, 3) # uses near() function from the dplyr package
+```
+
+- is. functions for verifying identity or properties
+
+```{r}
+is.numeric("ABC")
+is.numeric(c(1, 2,3 ))
+is.character(c("a","130","word"))
+is.na(c(1, 2, 3, NA, 5, NA, 7)) # note is.na( ) will evaluate each element
+```
+
+- Using logic to subset data
+
+```{r}
+iris[iris$Species == "setosa", ] # will subset the rows of iris where species is "setosa"
+```
+
+- Compound logic: & for AND, \| for OR
+
+```{r}
+iris[iris$Petal.Length > 1.5 & iris$species == "setosa", ] # subset rows with long petals and setosa
+iris[((iris$Petal.Length > 1.5) | (iris$Petal.Width < 0.15)) & (iris$Species == "setosa"), ] # subset rows that are setosa and meet a particular length or width requirement
+```
+
+- if/then/else syntax
+
+```{r}
+head(airquality)
+if(airquality$Wind[1] >= 15) { 
+  "High Wind"
+} else if (airquality$Wind[1] >= 10){
+  "Windy"
+} else if (airquality$Wind[1] >= 6) {
+  "Light Wind"
+} else if (airquality$Wind[1] >= 0) {
+  "Calm"
+} else {
+  "Error"
+}
+```
+
+Fizz Buzz challenge
+
+```{r}
+number <- 4
+if((number %% 15) == 0){
+  print("fizz buzz")
+} else if ((number %% 5) == 0){
+  print("buzz")
+} else if ((number %% 3) == 0){
+  print("fizz")
+} else {
+  print("whoops?")
+}
+```
+
+## Control Flow: Loops
+
+- for() loop
+
+```{r}
+for (i in 1:10){
+  print(i)
+}
+```
+
+- The index can be a vector rather than a counting number
+
+```{r}
+for (index in c("cat","hat","worm")){
+  print(index)
+}
+```
+
+- create vectors of length 5, then use a loop to print 5 sentences
+
+```{r}
+words<-c("first", "second", "third", "fourth", "fifth")
+data <- runif(5) # 5 random numbers
+for (i in 1:length(data)){
+  print(paste0("The ", words[i], " number is ", data[i]))
+}
+```
+
+- use break to escape a loop, or next to skip an index
+
+- Apply loops with Fizz Buzz
+
+```{r}
+for(number in -1:41){
+  if((number %% 15) == 0){
+    print(paste0(number, " fizz buzz"))
+  } else if ((number %% 5) == 0){
+    print(paste0(number, " buzz"))
+  } else if ((number %% 3) == 0){
+    print(paste0(number, " fizz"))
+  } else {
+    print(paste0(number, " whoops?"))
+  }  
+}
+```
+
+## Control Flow: Vectorized Functions
+
+- Set up my_batting data frame
+
+```{r}
+library(Lahman)
+my_batting <- Batting[, c("playerID", "teamID", "G", "AB", "R", "H", "X2B", "X3B", "HR")]
+head(my_batting)
+```
+
+- use colMeans() to find the mean for an entire column
+
+```{r}
+colMeans(my_batting[, 3:9])
+```
+
+- we can also do colMedians(), but we need to convert to matrix
+
+```{r}
+library(matrixStats)
+colMedians(as.matrix(my_batting[, 3:9]))
+```
+
+- Alternatively this could be done by looping through all the columns and calculating each mean. Let's try both and check the computation speed. Looping is slower
+
+```{r}
+library(microbenchmark)
+my_numeric_batting <- Batting[, 6:22] #get all numeric columns
+vectorized_results <- microbenchmark( 
+  colMeans(my_numeric_batting, na.rm = TRUE) # uses colMeans
+)
+
+loop_results <- microbenchmark(
+  for(i in 1:17){
+    mean(my_numeric_batting[, i], na.rm = TRUE) # loops through each column
+  }
+)
+vectorized_results
+loop_results
+```
+
+- Let's try ifelse(vector_condition, if_true_do_this, if_false_do_this)
+
+```{r}
+ifelse(airquality$Wind >= 15, "HighWind", "Not HighWind")
+```
+
+- Also can do nested ifelse
+
+```{r}
+ifelse(airquality$Wind >= 15, "HighWind",
+          ifelse(airquality$Wind >= 10, "Windy",
+                 ifelse(airquality$Wind >= 6, "LightWind", 
+                        ifelse(airquality$Wind >= 0, "Calm", "Error"))))
+```
+
+### Summary: Vetorized functions are faster than looping
+
+## Writing Functions
+
+- Lets create a standardize() function that will input a vector of values and then convert each into z-scores (based on the vector's mean and stdev)
+
+```{r}
+standardize <- function (vector){
+  return((vector-mean(vector)) / sd(vector))
+}
+```
+
+- Create data and apply the function
+
+```{r}
+set.seed(10)
+data <- runif(15)
+data
+result <- standardize(data)
+result
+mean(result)
+sd(result)
+```
+
+- Now add options for centering and scaling. They are TRUE by default
+
+```{r}
+standardize <- function (vector, center = TRUE, scale = TRUE){
+  if (center){
+    vector <- vector-mean(vector)
+  }
+  if (scale){
+    vector <- vector / sd(vector)
+  }
+  return(vector)
+}
+data
+print(standardize(data,FALSE,FALSE))
+print(standardize(data,TRUE,FALSE))
+print(standardize(data))
+```
+
+- Now let's also return mean and sd of the data
+
+```{r}
+standardize <- function (vector, center = TRUE, scale = TRUE){
+  mean <- mean(vector)
+  stdev <- sd(vector)
+  if (center){
+    vector <- vector-mean
+  }
+  if (scale){
+    vector <- vector / stdev
+  }
+  return(list(result = vector, mean = mean, sd = stdev)) # adding names to the list items
+}
+print(standardize(data))
+```
+
+- Use stop() to exit a function. Use switch() as an alternative to if/then/else to pick between options. Create summarizer() function, which performs requested calculations but also warns if input type is incorrect
+
+```{r}
+summarizer <- function(vec, type, trim = 0.05) {
+  if(!is.vector(vec) | !is.numeric(vec)){
+    stop("Not a vector or not numeric my friend.")
+  }
+  switch(type, 
+         mean = mean(vec),
+         median = median(vec),
+         trimmed = mean(vec, trim),
+         stop("Mistake!")
+         )
+}
+```
+
+- Execute summarizer function
+
+```{r}
+summarizer(letters, "mean")
+```
+
+```{r}
+summarizer(c(1,1,1,6,10), "mean")
+```
+
+```{r}
+summarizer(c(1,1,1,6,10), "trimmed", 0.2)
+```
+
+```{r}
+summarizer(c(1,1,1,6,10), "mean")
+```
+
+- For arguments in a function, we can choose whether or not to name them. R uses positional matching for all inputs not explicitly named.
+
+- An infix function is a function that goes between arguments (as opposed to a prefix function that goes before arguments). Here's an example "+" used as both an infix and a prefix function
+
+```{r}
+3 + 4
+'+'(3, 4)
+```
+
+Creating our own infix function %+% for pasting strings
+
+```{r}
+'%+%' <- function(a,b){
+  paste0(a, b)
+}
+"Test " %+% "pasting " %+% "strings."
+```
+
+- Base R Pipe is used as a shorthand for nested functions/parenthesis. The two code sections are identical:
+
+```{r}
+library(dplyr)
+arrange(select(filter(as_tibble(Lahman::Batting), teamID == "PIT"), playerID, G, X2B), desc(X2B))
+```
+
+```{r}
+Lahman::Batting |> #read the pipe as "then"
+  as_tibble() |>
+  filter(teamID == "PIT") |>
+  select(playerID, G, X2B) |> 
+  arrange(desc(X2B)) 
+```

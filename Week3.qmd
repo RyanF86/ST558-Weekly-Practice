@@ -1,0 +1,38 @@
+---
+title: "Week #3"
+format: pdf
+editor: visual
+---
+
+## Packages
+
+- Everything so far has been using Base R, which are the default packages that open when RStudio loads
+- Packages, aka libraries or modules
+- Collection of functions or datasets
+- CRAN has the 'official' packages for R
+- Environment Tab -\> Global environment shows packages loaded
+- First time using a package on a computer you must install it using install.packages(). Can browse on Packages Tab
+
+```{r}
+# install.packages("dplyr") # Only needs to be done once
+```
+
+- Then you load the package using library(), which must be done each session
+
+```{r}
+# library("dplyr")
+```
+
+- To list everything in a package use ls():
+
+```{r}
+# ls("package:dplyr")
+```
+
+- To ensure a function is used from a specific package (in the case the function name exists in multiple packages), use ::
+
+```{r}
+# dplyr::filter(iris, Species == "virginica")
+```
+
+- 

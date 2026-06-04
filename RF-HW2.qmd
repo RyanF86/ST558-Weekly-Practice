@@ -1,0 +1,205 @@
+---
+title: "Homework #2, Ryan Friedman"
+format: html
+editor: visual
+---
+
+## Task 1: Basic Vector Practice
+
+1.  Create vectors for pre-treatment and post-treatment data
+
+```{r}
+pre_bp <- c(130, 128, 116, 124, 133, 134, 118, 126, 114, 127, 141, 138, 128, 140, 137, 131, 120, 128, 139, 135)
+post_bp <- c(114, 98, 113, 99, 107, 116, 113, 111, 119, 117, 101, 119, 130, 122, 106, 106, 124, 102, 117, 113)
+
+```
+
+2.  Apply names to subjects
+
+```{r}
+subjects <- paste("Subject", 1:20, sep = "_")
+names(pre_bp) <- subjects
+names(post_bp) <- subjects
+pre_bp
+post_bp
+```
+
+3.  Calculate the change (as amount decreased) in blood pressure for each patient
+
+```{r}
+diff_bp <- pre_bp - post_bp
+diff_bp
+```
+
+4.  Calculate the average decrease in blood pressure across all patients
+
+```{r}
+mean(diff_bp)
+```
+
+5.  Determine which patients experienced a decrease in blood pressure after treatment (indices and names)
+
+```{r}
+which(diff_bp > 0) 
+```
+
+6.  Subset the vector of differences to only return those that have a positive change
+
+```{r}
+improved_bp <- diff_bp[diff_bp > 0] # logic can be used directly without which()
+improved_bp
+```
+
+7.  Calculate the average decrease in blood pressure for those where the blood pressure decreased
+
+```{r}
+mean(improved_bp)
+```
+
+## Task 2: Basic Data Frame Practice
+
+1.  Create a data frame from the data above
+
+```{r}
+bp_df <- data.frame(patient = subjects, pre_bp, post_bp, diff_bp)
+rownames(bp_df) <- NULL # removing the row names, since we now have a separate column for that
+bp_df
+```
+
+2.  Return only rows where diff_bp is negative
+
+```{r}
+bp_df[diff_bp < 0, ] # selects rows where diff_bp < 0 and all columns
+```
+
+3.  Add new column that is TRUE when post_bp is less than 120
+
+```{r}
+bp_df$under120 <- bp_df$post_bp < 120 # evaluates if post_bp column is less than 120, and stores the result in new column under120
+bp_df
+```
+
+4.  Print data frame in nicer format
+
+```{r}
+knitr::kable(bp_df)
+```
+
+## Task 3: List Practice
+
+1.  Create a new data frame for the placebo group
+
+```{r}
+placebo <- data.frame(patient = subjects[1:10], pre_bp = c(138, 135, 147, 117, 152, 134, 114, 121, 131, 130
+), post_bp = c(105, 136, 123, 130, 134, 143, 135, 139, 120, 124)) # constructing new data frame placebo using 10 subjects and new data provided
+placebo$diff_bp <- placebo$pre_bp - placebo$post_bp # adding column for calculation of bp loss (pre - post)
+placebo$under120 <- placebo$post_bp < 120 # similarly creates under120 column by assessing if post_bp is less than 120
+placebo
+```
+
+2.  Create a list of the two data frames: treatment and placebo
+
+```{r}
+combined_data <- list(treatment = bp_df, placebo = placebo) # creates the list and sets the names as treatment and placebo
+combined_data
+```
+
+3.  Access the first list element using three different types of syntax
+
+```{r}
+combined_data[1] # accesses treatment data frame as a list with name treatment
+combined_data[[1]] # accesses treatment data frame as a data frame 
+combined_data$treatment # accesses the element of the data named 'treatment'
+```
+
+4.  In one line, access the placebo data frame, pre_bp column
+
+```{r}
+combined_data$placebo$pre_bp
+```
+
+## Task 4: Control Flow Practice
+
+1.  Create a new column in each data frame called status, which will contain type "character"
+
+```{r}
+combined_data[[1]]$status <- character(length(combined_data[[1]]$post_bp)) # makes new column  of characters within first item of the list (treatment), and checks post_bp vector to determine appropriate length
+combined_data[[2]]$status <- character(length(combined_data[[2]]$post_bp))# makes new column  of characters within second item of the list (placebo), and checks post_bp vector to determine appropriate length
+```
+
+2.  Apply the status column's values to the non-placebo (treatment) data frame based on the post-treatment blood pressure value:
+
+- Less than or equal to 120: "optimal"
+- Greater than 130: "high"
+- Otherwise: "borderline"
+
+```{r}
+for(i in 1:nrow(combined_data[[1]])){ 
+  # using nrow() to ensure index matches number of rows of the first data frame (treatment)
+  if(combined_data[[1]]$post_bp[i] <= 120){
+    combined_data[[1]]$status[i] <- "optimal"
+  }
+  else if(combined_data[[1]]$post_bp[i] > 130){
+    combined_data[[1]]$status[i] <- "high"
+  }
+  else{
+    combined_data[[1]]$status[i] <- "borderline"
+  }
+}
+combined_data[[1]]
+```
+
+3.  Repeat the above step for the placebo data frame
+
+```{r}
+# same as before, except using list item 2
+for(i in 1:nrow(combined_data[[2]])){ 
+  if(combined_data[[2]]$post_bp[i] <= 120){
+    combined_data[[2]]$status[i] <- "optimal"
+  }
+  else if(combined_data[[2]]$post_bp[i] > 130){
+    combined_data[[2]]$status[i] <- "high"
+  }
+  else{
+    combined_data[[2]]$status[i] <- "borderline"
+  }
+}
+combined_data[[2]]
+```
+
+
+## Task 5: Function Writing
+
+1.  Write a function that does the following:
+- Takes in a list with two data frames as an argument
+- Takes in an R function statistic request, with default set to "mean"
+- Find the statistic requested for pre, post, and diff columns of both data frames
+- Returns the six values as a named list with meaningful names
+- Apply the function to your list of data frames from above.  Use it with no statistic, and also for "var", "sd", "min", and "max"
+
+```{r}
+CalcStats <- function(listdata, stat = "mean"){
+  myfun <- get(stat) # Converts the stat argument string into a function that can be called later with myfun()
+  # Create the vector of calculated results 
+  results <- c(myfun(listdata[[1]]$pre_bp), # myfun() applied to pre_bp of list 1
+                     myfun(listdata[[1]]$post_bp), # myfun() applied to post_bp of list 1
+                     myfun(listdata[[1]]$diff_bp), # myfun() applied to diff_bp of list 1
+                     myfun(listdata[[2]]$pre_bp), # myfun() applied to pre_bp of list 2
+                     myfun(listdata[[2]]$post_bp), # myfun() applied to post_bp of list 2
+                     myfun(listdata[[2]]$diff_bp)) # myfun() applied to diff_bp of list 2
+  # Add names associated with results 
+  names(results) <- c(paste("Treatment pre_bp", stat), 
+                      paste("Treatment post_bp", stat), 
+                      paste("Treatment diff_bp", stat), 
+                      paste("Placebo pre_bp", stat), 
+                      paste("Placebo post_bp", stat), 
+                      paste("Placebo diff_bp", stat))
+  return(results)
+}
+CalcStats(combined_data)
+CalcStats(combined_data, "var")
+CalcStats(combined_data, "sd")
+CalcStats(combined_data, "min")
+CalcStats(combined_data, "max")
+```
+
