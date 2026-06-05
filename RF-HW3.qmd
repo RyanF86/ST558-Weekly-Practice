@@ -1,0 +1,78 @@
+---
+title: "Homework #3, Ryan Friedman"
+format: html
+editor: visual
+---
+
+## Task 1: Conceptual Questions
+
+1.  If your working directory is myfolder/homework/, what relative path would you specify to get the file located at myfolder/MyData.csv?
+
+    `read_csv("../MyData.csv")`
+
+2.  What are the major benefits of using R projects?
+
+    R projects provide a self-contained working environment for R scripts, markdown documents, data, and outputs. R projects save the working state so that variables and command history are preserved when reopening. Additionally, R projects are portable and suitable for GitHub integration.
+
+3.  What is Git and what is GitHub?
+
+    Git is version control system for tracking changes and collaboration that allows for branching and merging. GitHub is website for hosting Git repositories with additional collaborative features.
+
+4.  What are the two main differences between a tibble and a data.frame?
+
+    When a single column of a data frame is selected, the result is a vector. When a single column of a tibble is selected, the result is still a tibble. Additionally, compared to data frames, tibbles print in a cleaner format by default.
+
+5.  Rewrite the following nested function call using baseR’s chaining operator:
+
+    `library(tidyverse)  arrange(filter(select(as_tibble(iris), starts_with("Petal"), Species), Petal.Length < 1.55), Species)`
+
+    `TBD`
+
+6.  What is meant by long format data and wide format data? Which do we generally prefer for statistical
+analysis?
+
+    The distinction between wide and long data formats is applicable when the data includes repeated observations for the same subject.  In wide data format, the repeated observations are across multiple columns.  In long data format, the repeated observations are across multiple rows.  Long data format is preferred for statistical analysis.
+
+## Task 2: Reading Delimited Data
+
+1.  
+
+2.  
+
+3.  
+
+## Task 3: Combining Excel and Delimited Data
+
+1.  
+
+2.  
+
+3.  
+
+4.  
+
+5.  
+
+6.  
+
+7.  
+
+8.  
+
+9.  
+
+## Task 4: Database Practice
+
+1.  
+
+2.  
+
+3.  
+
+4.  
+
+5.  
+
+6.  
+
+7.  
