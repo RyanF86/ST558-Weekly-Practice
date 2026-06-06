@@ -208,12 +208,162 @@ dry_bean_range
 
   - **Mutating** to create a new variable
 
-- Example of chaining manipulations with |>:
+- Example of chaining manipulations with \|\>:
 
 ```{r}
-# my_data |>                                
-    # select(var1:var10, var20) |>   
-    # filter(var1 == "first") |>   
-    # mutate(new_var = lag(var20)) |>   
-    # ...
+my_data |>                                
+    select(var1:var10, var20) |>   
+    filter(var1 == "first") |>   
+    mutate(new_var = lag(var20)) |>   
+    ...
 ```
+
+- use as_tibble() to convert data frame to tibble if needed
+
+- filter() takes a tibble as first argument and logical vector as second argument. Can do with or without chaining:
+
+```{r}
+filter(batting_tbl, G > 50)
+# or
+batting_tbl |>
+  filter(G > 50)
+```
+
+- you have multiple logic conditions, you can use & or you can separate by comma:
+
+```{r}
+batting_tbl |>
+  filter(G > 50 & yearID == 2018)
+
+batting_tbl |>
+  filter(G > 50, yearID == 2018)
+```
+
+- use %in% to chose any observations matching an element in a vector
+
+```{r}
+batting_tbl |>
+  filter(G > 50, yearID %in% c(2018, 2019, 2020))
+```
+
+- arrange() is used to reorder rows. example including chaining will arrange first by descending teamID and then ascending playerID
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID)
+```
+
+- To return a single columns we have options `dplyr::pull()` `$` and `[ , ]`
+
+- To return multiple columns in the order desired, use select()
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H, X2B, X3B, HR)
+```
+
+- This can also select a contiguous range of columns. In this case, H to HR
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H:HR)
+```
+
+- Can also use starts_with() and ends_with()
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(ends_with("ID") | starts_with("X"), G, AB, H, HR)
+```
+
+- If we're just reordering, everything() is useful
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, H:HR, everything())
+```
+
+- rename() used to change the names of columns
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H:HR) |>
+  rename("Doubles" = "X2B", "Triples" = "X3B")
+```
+
+- mutate() is used to create new variables (also modify or delete)
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H:HR) |>
+  rename("Doubles" = "X2B", "Triples" = "X3B") |>
+  mutate(Extra_Base_Hits = Doubles + Triples + HR,
+         Singles = H - Extra_Base_Hits) |>
+  select(playerID, teamID, Singles, Doubles:HR, H, Extra_Base_Hits) # select just used here to reorder columns
+```
+
+- There are also calculation functions you can use within mutate().  A couple examples here:
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H:HR) |>
+  rename("Doubles" = "X2B", "Triples" = "X3B") |>
+  mutate(Extra_Base_Hits = Doubles + Triples + HR,
+         Singles = H - Extra_Base_Hits,
+         H_Percentile = percent_rank(H),
+         H_Mean = mean(H)) |>
+  select(playerID, teamID, H, H_Mean, H_Percentile, everything()) 
+```
+
+- Use group_by() if we want to apply the calculation just within the groups.  Here the mean and percentile are calculated for each observation, but on a by team basis:
+
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, teamID, H:HR) |>
+  rename("Doubles" = "X2B", "Triples" = "X3B") |>
+  group_by(teamID) |>
+  mutate(Extra_Base_Hits = Doubles + Triples + HR,
+         Singles = H - Extra_Base_Hits,
+         H_Percentile = percent_rank(H),
+         H_Mean = mean(H)) |>
+  select(playerID, teamID, H, H_Mean, H_Percentile, everything()) |>
+  print(n = 50)
+```
+
+- If you want to get fancy, group_by() can take multiple arguments.  `group_by(teamID, yearID)` would do the calculations by both year and team.
+
+- ifelse() can be used to create new variables where the value is dependent upon conditions
+```{r}
+batting_tbl |>
+  filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
+  arrange(desc(teamID), playerID) |>
+  select(playerID, yearID, teamID, H:HR) |>
+  rename("Doubles" = "X2B", "Triples" = "X3B") |>
+  group_by(teamID, yearID) |>
+  mutate(Extra_Base_Hits = Doubles + Triples + HR,
+         Singles = H - Extra_Base_Hits,
+         H_Percentile = percent_rank(H),
+         H_Mean = mean(H),
+         Status = ifelse(H > H_Mean, 
+                         "Great", 
+                         "Needs some work")) |>
+  select(playerID, teamID, yearID, H, H_Mean, Status, H_Percentile, everything())
+```
+
+- try clean_names() if the imported column names get funky

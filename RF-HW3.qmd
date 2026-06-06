@@ -60,7 +60,7 @@ glass
 2.  Replace "Type_of_glass" with the corresponding descriptive string labels and change type to factor
 
 ```{r}
-glass_factored <- glass |>
+glass |>
   mutate(Type_of_glass = factor(Type_of_glass, 
                                 c(1, 2, 3, 4, 5, 6, 7), 
                                 c("building_windows_float_processed",
@@ -70,13 +70,12 @@ glass_factored <- glass |>
                                   "containers",
                                   "tableware",
                                   "headlamps")))
-glass_factored
 ```
 
 3.  Continuing the pipe chain to keep only observations where Fe \< 0.2 and Type of Glass is either "tableware" or "headlamp"
 
 ```{r}
-glass_factored_filtered <- glass |>
+glass |>
   mutate(Type_of_glass = factor(Type_of_glass, 
                                 c(1, 2, 3, 4, 5, 6, 7), 
                                 c("building_windows_float_processed",
@@ -87,7 +86,6 @@ glass_factored_filtered <- glass |>
                                   "tableware",
                                   "headlamps"))) |>
   filter((Fe < 0.2) & (Type_of_glass == "tableware" | Type_of_glass == "headlamps"))
-glass_factored_filtered
 ```
 
 #### Yeast Data
@@ -103,9 +101,22 @@ yeast <- read_fwf("https://www4.stat.ncsu.edu/online/datasets/yeast.data",
 yeast
 ```
 
-2.  
+2. Remove seq_name and nuc columns
 
-3.  
+```{r}
+yeast |>
+  select(-seq_name, -nuc)
+```
+
+3. Continuing the pipe chain to add columns corresponding to the mean and median of each numeric variable
+at each class grouping   
+
+```{r}
+yeast |>
+  select(-seq_name, -nuc) |>
+  group_by(class) |>
+  mutate(across(where(is.numeric), mean, .names = "meanbyclass_{.col}"))
+```
 
 ## Task 3: Combining Excel and Delimited Data
 
@@ -148,13 +159,45 @@ wine <- bind_rows(white, red)
 wine
 ```
 
-6.  
+6.  Start a chain on the combined data to only look at high-quality wines
+(quality > 6.5) and wines that have a reasonable alcohol value (alcohol < 132).
 
-7.  
+```{r}
+wine |>
+  filter(quality > 6.5, alcohol < 132)
+```
 
-8.  
+7.  Continue the chain to sort from highest quality to lowest (descending)
 
-9.  
+```{r}
+wine |>
+  filter(quality > 6.5, alcohol < 132) |>
+  arrange(desc(quality))
+```
+
+
+8.  Continue the chain to select only the variables that contain acid, the alcohol variable, the type
+variable, and the quality variable.
+
+```{r}
+wine |>
+  filter(quality > 6.5, alcohol < 132) |>
+  arrange(desc(quality)) |>
+  select(contains("acid"), alcohol, type, quality)
+```
+
+9.  Continue the chain to add the mean and standard deviation of the alcohol variable to the data set
+for each setting of the quality variable.
+
+```{r}
+wine |>
+  filter(quality > 6.5, alcohol < 132) |>
+  arrange(desc(quality)) |>
+  select(contains("acid"), alcohol, type, quality) |>
+  group_by(quality) |>
+  mutate(mean_alcohol = mean(alcohol), sd_alcohol = sd(alcohol))
+```
+
 
 ## Task 4: Database Practice
 
