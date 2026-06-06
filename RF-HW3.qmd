@@ -22,20 +22,86 @@ editor: visual
 
     When a single column of a data frame is selected, the result is a vector. When a single column of a tibble is selected, the result is still a tibble. Additionally, compared to data frames, tibbles print in a cleaner format by default.
 
-5.  Rewrite the following nested function call using baseR’s chaining operator:
+5.  Rewrite the following nested function call using base R’s chaining operator:
 
-    `library(tidyverse)  arrange(filter(select(as_tibble(iris), starts_with("Petal"), Species), Petal.Length < 1.55), Species)`
+```{r}
+#| eval: false
+library(tidyverse)
+arrange(filter(select(as_tibble(iris), starts_with("Petal"), Species), Petal.Length < 1.55), Species)
+```
 
-    `TBD`
+```{r}
+#| eval: false
+iris |>
+  as_tibble() |>
+  select(starts_with("Petal"), Species) |>
+  filter(Petal.Length < 1.55) |>
+  arrange(Species)
+```
 
-6.  What is meant by long format data and wide format data? Which do we generally prefer for statistical
-analysis?
+6.  What is meant by long format data and wide format data? Which do we generally prefer for statistical analysis?
 
-    The distinction between wide and long data formats is applicable when the data includes repeated observations for the same subject.  In wide data format, the repeated observations are across multiple columns.  In long data format, the repeated observations are across multiple rows.  Long data format is preferred for statistical analysis.
+    The distinction between wide and long data formats is applicable when the data includes repeated observations for the same subject. In wide data format, the repeated observations are across multiple columns. In long data format, the repeated observations are across multiple rows. Long data format is preferred for statistical analysis.
 
 ## Task 2: Reading Delimited Data
 
-1.  
+#### Glass Data
+
+1.  Read in glass.data from URL and add column names
+
+```{r}
+library(tidyverse)
+glass <- read_csv("https://www4.stat.ncsu.edu/online/datasets/glass.data", 
+                       col_names = c("ID", "RI", "Na", "Mg", "Al", "Si", 
+                                     "K", "Ca", "Ba", "Fe", "Type_of_glass"))
+glass
+```
+
+2.  Replace "Type_of_glass" with the corresponding descriptive string labels and change type to factor
+
+```{r}
+glass_factored <- glass |>
+  mutate(Type_of_glass = factor(Type_of_glass, 
+                                c(1, 2, 3, 4, 5, 6, 7), 
+                                c("building_windows_float_processed",
+                                  "building_windows_non_float_processed",
+                                  "vehicle_windows_float_processed",
+                                  "vehicle_windows_non_float_processed",
+                                  "containers",
+                                  "tableware",
+                                  "headlamps")))
+glass_factored
+```
+
+3.  Continuing the pipe chain to keep only observations where Fe \< 0.2 and Type of Glass is either "tableware" or "headlamp"
+
+```{r}
+glass_factored_filtered <- glass |>
+  mutate(Type_of_glass = factor(Type_of_glass, 
+                                c(1, 2, 3, 4, 5, 6, 7), 
+                                c("building_windows_float_processed",
+                                  "building_windows_non_float_processed",
+                                  "vehicle_windows_float_processed",
+                                  "vehicle_windows_non_float_processed",
+                                  "containers",
+                                  "tableware",
+                                  "headlamps"))) |>
+  filter((Fe < 0.2) & (Type_of_glass == "tableware" | Type_of_glass == "headlamps"))
+glass_factored_filtered
+```
+
+#### Yeast Data
+
+1.  Read in yeast.data from the URL and add column names
+
+```{r}
+yeast <- read_fwf("https://www4.stat.ncsu.edu/online/datasets/yeast.data",
+                       col_positions = fwf_widths(c(12, 6, 6, 6, 6, 6, 6, 6, 6, 3),
+                                                  c("seq_name", "mcg", "gvh", 
+                                                    "alm", "mit", "erl", "pox", 
+                                                    "vac", "nuc", "class")))
+yeast
+```
 
 2.  
 
@@ -43,15 +109,44 @@ analysis?
 
 ## Task 3: Combining Excel and Delimited Data
 
-1.  
+1.  Read in white-wine.xlsx
 
-2.  
+```{r}
+library(readxl)
+white <- read_excel("HW3DataFiles/white-wine.xlsx")
+white
+```
 
-3.  
+2.  Use the second sheet of white-wine.xlsx to find variable names and apply to the data set.
 
-4.  
+```{r}
+colnames(white) <- read_excel("HW3DataFiles/white-wine.xlsx", sheet = "variables")[[1]] # [[1]] is needed to return as a vector
+white
 
-5.  
+```
+
+3.  Add a column to this data set to indicate the wines are white
+
+```{r}
+white$type <- "white"
+white
+```
+
+4.  Read in red-wine.csv, add the column indicating the wines are red, and fix the variable names to match the white wine data
+
+```{r}
+red <- read_delim("HW3DataFiles/red-wine.csv", delim = ";")
+red$type <- "red"
+colnames(red) <- colnames(white)
+red
+```
+
+5.  Combine the two data sets into one data set.
+
+```{r}
+wine <- bind_rows(white, red)
+wine
+```
 
 6.  
 

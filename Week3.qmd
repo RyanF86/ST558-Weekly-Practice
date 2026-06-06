@@ -156,38 +156,64 @@ ump_data
 
 ## Reading Excel Data
 
-- we use the readxl package, which is not a default part of tinyverse so we need to load it
+- we use the readxl package, which is not a default part of tidyverse so we need to load it
 
 ```{r}
 library(readxl)
 ```
 
-- Excel data has to be saved locally (no url). I'm putting it in a folder called DataFiles
+- Excel data has to be saved locally (no url). I'm putting it in a folder called PracticeDataFiles
 
 ```{r}
-dry_bean_data <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx")
+dry_bean_data <- read_excel("PracticeDataFiles/Dry_Bean_Dataset.xlsx")
 dry_bean_data
 ```
 
 - To look at specific sheets, use excel_sheets
 
 ```{r}
-excel_sheets("DataFiles/Dry_Bean_Dataset.xlsx")
+excel_sheets("PracticeDataFiles/Dry_Bean_Dataset.xlsx")
 ```
 
 - Lets grab the second sheet
 
 ```{r}
-citation_dry_bean_data <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx", 
-                            sheet = excel_sheets("DataFiles/Dry_Bean_Dataset.xlsx")[2])
+citation_dry_bean_data <- read_excel("PracticeDataFiles/Dry_Bean_Dataset.xlsx", 
+                            sheet = excel_sheets("PracticeDataFiles/Dry_Bean_Dataset.xlsx")[2])
 citation_dry_bean_data
 ```
 
 - To read specific cells in a contiguous range:
 
 ```{r}
-dry_bean_range <- read_excel("DataFiles/Dry_Bean_Dataset.xlsx", 
+dry_bean_range <- read_excel("PracticeDataFiles/Dry_Bean_Dataset.xlsx", 
                    range = cell_cols("A:B")
                    )
 dry_bean_range
+```
+
+## Manipulating Data with dplyr
+
+- Row Manipulations:
+
+  - **Filter** i.e. subsetting
+
+  - **Arranging** i.e. putting in order
+
+- Column Manipulations:
+
+  - **Selecting** i.e. grab a subset of variables
+
+  - **Rename** a column
+
+  - **Mutating** to create a new variable
+
+- Example of chaining manipulations with |>:
+
+```{r}
+# my_data |>                                
+    # select(var1:var10, var20) |>   
+    # filter(var1 == "first") |>   
+    # mutate(new_var = lag(var20)) |>   
+    # ...
 ```
