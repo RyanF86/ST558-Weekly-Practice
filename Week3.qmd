@@ -497,3 +497,10 @@ WHERE (`yearID` = 2010.0)")
 ```
 
 - See Video in course content on how to connect to Google BigQuery
+
+## SQL Joins
+
+- Cheat sheet here: `https://rstudio.github.io/cheatsheets/data-transformation.pdf`
+
+- inner_join() will join data and retain only rows with matches
+

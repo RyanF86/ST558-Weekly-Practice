@@ -101,15 +101,14 @@ yeast <- read_fwf("https://www4.stat.ncsu.edu/online/datasets/yeast.data",
 yeast
 ```
 
-2. Remove seq_name and nuc columns
+2.  Remove seq_name and nuc columns
 
 ```{r}
 yeast |>
   select(-seq_name, -nuc)
 ```
 
-3. Continuing the pipe chain to add columns corresponding to the mean and median of each numeric variable
-at each class grouping   
+3.  Continuing the pipe chain to add columns corresponding to the mean and median of each numeric variable at each class grouping
 
 ```{r}
 yeast |>
@@ -159,8 +158,7 @@ wine <- bind_rows(white, red)
 wine
 ```
 
-6.  Start a chain on the combined data to only look at high-quality wines
-(quality > 6.5) and wines that have a reasonable alcohol value (alcohol < 132).
+6.  Start a chain on the combined data to only look at high-quality wines (quality \> 6.5) and wines that have a reasonable alcohol value (alcohol \< 132).
 
 ```{r}
 wine |>
@@ -175,9 +173,7 @@ wine |>
   arrange(desc(quality))
 ```
 
-
-8.  Continue the chain to select only the variables that contain acid, the alcohol variable, the type
-variable, and the quality variable.
+8.  Continue the chain to select only the variables that contain acid, the alcohol variable, the type variable, and the quality variable.
 
 ```{r}
 wine |>
@@ -186,8 +182,7 @@ wine |>
   select(contains("acid"), alcohol, type, quality)
 ```
 
-9.  Continue the chain to add the mean and standard deviation of the alcohol variable to the data set
-for each setting of the quality variable.
+9.  Continue the chain to add the mean and standard deviation of the alcohol variable to the data set for each setting of the quality variable.
 
 ```{r}
 wine |>
@@ -197,7 +192,6 @@ wine |>
   group_by(quality) |>
   mutate(mean_alcohol = mean(alcohol), sd_alcohol = sd(alcohol))
 ```
-
 
 ## Task 4: Database Practice
 
@@ -216,7 +210,6 @@ tbl(con, "Teams") |>
   filter(yearID == 2015) 
 ```
 
-
 3.  Repeat the prior step, this time using sql()
 
 ```{r}
@@ -227,8 +220,7 @@ tbl(con, sql(
 ))
 ```
 
-4.  Return all of the players in the hall of fame, the year they were voted into the hall of fame, and their
-category 
+4.  Return all of the players in the hall of fame, the year they were voted into the hall of fame, and their category
 
 ```{r}
 tbl(con, "HallOfFame") |>
@@ -237,10 +229,58 @@ tbl(con, "HallOfFame") |>
   collect()
 ```
 
+5.  Combine the table from the previous question with the People table in order to have the nameFirst and nameLast names added to what was returned above.
 
-5.  Combine the table from the previous question with the People table in order to have the nameFirst
-and nameLast names added to what was returned above.
+```{r}
+inner_join(
+  tbl(con, "HallOfFame") |>
+    filter(inducted == "Y") |>
+    select(playerID, yearID, category),
+  tbl(con, "People") |>
+    select(playerID, nameFirst, nameLast),
+)
+```
 
-6.  
+6.  Return only the playerID , G, W, and L columns from the Managers table. Then:
 
-7.  
+- Determine the overall win/loss records (sum of wins and sum of losses) for each of these hall of fame managers.
+
+- Create a new variable that is the career win/loss percentage (Total_W/G_managed).
+
+- Sort the resulting data by the win/loss percentage variable (from largest to smallest).
+
+```{r}
+tbl(con, "Managers") |>
+  select(playerID, G, W, L) |>
+  group_by(playerID) |> # necessary since playerID values are duplicated across multiple years
+  summarize(G_managed = sum(G, na.rm = TRUE), # returns one row per each grouping variable (playerID)
+            Total_W = sum(W, na.rm = TRUE),   # also returns only the grouping columns and new calculated columns
+            Total_L = sum(L, na.rm = TRUE)) |>
+  collect() |>
+  mutate(WinPercent = Total_W/G_managed) |> # creates new variable as a calculation of winning percent
+  arrange(desc(WinPercent))
+```
+
+7.  Return information for only the people that managed a team and were inducted into the hall of fame (regardless of their category in the hall of fame)
+
+```{r}
+inner_join(
+  inner_join(                                      # this is the hall of fame people from above (#5)
+    tbl(con, "HallOfFame") |>
+      filter(inducted == "Y") |>
+      select(playerID, yearID, category),
+    tbl(con, "People") |>
+      select(playerID, nameFirst, nameLast),) |>
+    collect(),
+  tbl(con, "Managers") |>                          # this is the managers from above (#6)
+    select(playerID, G, W, L) |>
+    group_by(playerID) |>
+    summarize(G_managed = sum(G, na.rm = TRUE),
+              Total_W = sum(W, na.rm = TRUE),
+              Total_L = sum(L, na.rm = TRUE)) |>
+    collect() |>
+    mutate(WinPercent = Total_W/G_managed) |>
+    arrange(desc(WinPercent))
+)                                                  # note: prior order is lost in the join
+```
+
