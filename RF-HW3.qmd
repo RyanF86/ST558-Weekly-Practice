@@ -201,15 +201,45 @@ wine |>
 
 ## Task 4: Database Practice
 
-1.  
+1.  Connect to the lahman.db file and look at all the tables in the database.
 
-2.  
+```{r}
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "HW3DataFiles/lahman.db")
+dbListTables(con)
+```
 
-3.  
+2.  Using tbl() and dplyr, return all of the data from the teams table for the year 2015
 
-4.  
+```{r}
+tbl(con, "Teams") |>
+  filter(yearID == 2015) 
+```
 
-5.  
+
+3.  Repeat the prior step, this time using sql()
+
+```{r}
+tbl(con, sql(
+  "SELECT `Teams`.*
+  FROM `Teams`
+  WHERE (`yearID` = 2015.0)"
+))
+```
+
+4.  Return all of the players in the hall of fame, the year they were voted into the hall of fame, and their
+category 
+
+```{r}
+tbl(con, "HallOfFame") |>
+  filter(inducted == "Y") |>
+  select(playerID, yearID, category) |>
+  collect()
+```
+
+
+5.  Combine the table from the previous question with the People table in order to have the nameFirst
+and nameLast names added to what was returned above.
 
 6.  
 

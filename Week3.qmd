@@ -315,7 +315,8 @@ batting_tbl |>
   select(playerID, teamID, Singles, Doubles:HR, H, Extra_Base_Hits) # select just used here to reorder columns
 ```
 
-- There are also calculation functions you can use within mutate().  A couple examples here:
+- There are also calculation functions you can use within mutate(). A couple examples here:
+
 ```{r}
 batting_tbl |>
   filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
@@ -329,7 +330,7 @@ batting_tbl |>
   select(playerID, teamID, H, H_Mean, H_Percentile, everything()) 
 ```
 
-- Use group_by() if we want to apply the calculation just within the groups.  Here the mean and percentile are calculated for each observation, but on a by team basis:
+- Use group_by() if we want to apply the calculation just within the groups. Here the mean and percentile are calculated for each observation, but on a by team basis:
 
 ```{r}
 batting_tbl |>
@@ -346,9 +347,10 @@ batting_tbl |>
   print(n = 50)
 ```
 
-- If you want to get fancy, group_by() can take multiple arguments.  `group_by(teamID, yearID)` would do the calculations by both year and team.
+- If you want to get fancy, group_by() can take multiple arguments. `group_by(teamID, yearID)` would do the calculations by both year and team.
 
 - ifelse() can be used to create new variables where the value is dependent upon conditions
+
 ```{r}
 batting_tbl |>
   filter(G > 100, yearID %in% c(2018, 2019, 2020)) |>
@@ -367,3 +369,131 @@ batting_tbl |>
 ```
 
 - try clean_names() if the imported column names get funky
+
+## Manipulating Data with tidyr
+
+- `pivot_longer()` lengthens data by increasing the number of rows and decreasing the number of columns
+
+- `pivot_wider()` - widens data by increasing the number of columns and decreasing the number of rows
+
+- Separate a column using `separate_wider_delim()`, i.e. with dates
+
+- Combine two columns with `unite()`
+
+## Databases and Basic SQL
+
+- A database is a group of tables that are related by keys. Some variables are common across multiple tables, and help relate the tables to each other. (i.e. relational database)
+
+  - Relational Database Management System (RDBMS) examples
+
+  - Oracle
+
+  - MySQL
+
+  - SQL Server
+
+  - PostgreSQL
+
+  - SQLite
+
+  - Azure SQL
+
+- Most RDBMS have their own Structured Query Language (SQL) for getting information from tables in the database
+
+- Actions on databases (CRUD)
+
+  - Create data (adding rows or a table to the DB)
+  
+  - Read data (return data from DB table)
+  
+  - Update data
+  
+  - Delete data
+  
+  - Also: access control, monitoring, backup/recovery, tuning
+  
+- `dbConnect()` is used to connect to a DB.  Needs the `DBI` package
+
+```{r}
+library(DBI)
+con <- dbConnect(data_base_type_goes_here_usually_requires_a_package, 
+  host = "hostname.website",
+  user = "username",
+  password = rstudioapi::askForPassword("DB password")
+)
+```
+
+- Database types and their packages:
+
+  - RSQLite::SQLite() for RSQLite
+  
+  - RMySQL::MySQL() for RMySQL
+  
+  - RPostgreSQL::PostgreSQL() for RPostgreSQL
+  
+  - odbc::odbc() for Open Database Connectivity
+  
+  - bigrquery::bigquery() for google’s bigQuery
+
+- Once connected, use tbl() to reference a table in the database.
+
+```{r}
+new_data <- tbl(con, "name_of_table")
+```
+
+- When done, it's good practice to disconnect
+
+```{r}
+dbDisconnect(con)
+```
+
+#### DB Example
+
+- Connect to lahman.db
+
+```{r}
+library(DBI)
+con <- dbConnect(RSQLite::SQLite(), "PracticeDataFiles/lahman.db")
+```
+
+- List out the tables in the DB
+
+```{r}
+dbListTables(con)
+```
+- Make sure dplyr is loaded, and lets look at the pitching table:
+
+```{r}
+library(dplyr)
+tbl(con, "Pitching")
+```
+
+- Note the number of rows is missing, because it doesn't pull all of the data until you ask with collect() or store the result in an object
+
+```{r}
+tbl(con, "Pitching") |>
+  select(ends_with("ID")) |>
+  filter(yearID == 2010) |>
+  collect()
+```
+
+- We can see the SQL code in the background with `show_query()`
+
+```{r}
+tbl(con, "Pitching") |>
+  select(ends_with("ID")) |>
+  filter(yearID == 2010) |>
+  show_query()
+```
+
+- You can also just write SQL code:
+
+```{r}
+tbl(con, sql(
+"SELECT `playerID`, `yearID`, `teamID`, `lgID`
+FROM `Pitching`
+WHERE (`yearID` = 2010.0)")
+)
+```
+
+- See Video in course content on how to connect to Google BigQuery
