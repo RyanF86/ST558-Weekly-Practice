@@ -24,3 +24,13 @@ library(tidycensus)
 
 - Try `get_acs()` to obtain data from the American Community Survey
 
+```{r}
+rent <- "DP04_0142PE" # PE means percentage
+rent_data <- get_acs(variables = rent,
+                     geography = "county",
+                     geometry = TRUE, # returns the polygon data and allows for maps easily
+                     survey = "acs5",
+                     show_call = TRUE, # can add state and other things
+                     key = "5a644b1ecc301cab1403e0940017740912735ef9") 
+```
+
