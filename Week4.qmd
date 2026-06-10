@@ -1,0 +1,26 @@
+---
+title: "Week #4"
+format: pdf
+editor: visual
+---
+
+## Querying APIs
+
+- API:
+
+  - Application Programming Interface
+
+  - A protocol for computers to talk to each other, allowing us to grab data from systems.
+
+  - Also we can set up APIs to allow others access to our data
+
+  - Many websites have require an API key
+
+- The API for the USA Census (census.gov) is accessible through a package `tidycensus`j
+
+```{r}
+library(tidycensus)
+```
+
+- Try `get_acs()` to obtain data from the American Community Survey
+

@@ -283,4 +283,3 @@ inner_join(
     arrange(desc(WinPercent))
 )                                                  # note: prior order is lost in the join
 ```
-
