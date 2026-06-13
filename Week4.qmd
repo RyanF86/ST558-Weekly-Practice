@@ -34,3 +34,178 @@ rent_data <- get_acs(variables = rent,
                      key = "5a644b1ecc301cab1403e0940017740912735ef9") 
 ```
 
+- Install and try `mapview`
+
+```{r}
+library(mapview)
+library(leaflet)
+library(leafem)
+library(sf)
+```
+
+```{r}
+rent_data |>
+  mapview(zcol = "estimate",
+          layer.name = "Median rent as a % of gross income")
+```
+
+- JSON data (Java Script Object Notation)
+
+- Recommended package: `jsonlite`
+
+```{r}
+library(jsonlite)
+```
+
+```{r}
+library(httr)
+URL_ids <- "https://api.nhle.com/stats/rest/en/team"
+id_info <- GET(URL_ids)
+str(id_info, max.level = 1)
+```
+
+- status "200" means it worked
+
+- the thing we are interested in is content, which is json data
+
+```{r}
+library(tidyr)
+parsed <- fromJSON(rawToChar(id_info$content))
+team_info <- as_tibble(parsed$data)
+team_info 
+```
+
+## EDA Concepts
+
+- Basic steps of Exploratory Data Analysis (EDA)
+
+  - Understand how data is stored
+
+  - Basic data validation
+
+  - Determine rate of mising values
+
+  - Clean up data as needed
+
+  - Investigate distributions (univariate, multivariate)
+
+  - Apply transformations
+
+```{r}
+library(tidyverse)
+library(readxl)
+app_data <- read_excel("PracticeDataFiles/app_data.xlsx")
+app_data
+```
+
+- note: BMI read in as a chr, though it should be a dbl. Can use as.numeric to fix
+- Also US_number would be better off as a char since it is categorical
+
+```{r}
+app_data <- app_data |>
+  mutate(BMI = as.numeric(BMI),
+         US_Number = as.character(US_Number))
+app_data
+```
+
+- use describe() to get basic numeric summary of all
+
+```{r}
+library(psych)
+describe(app_data)
+```
+
+- use is.na() to determine if any NA values exist
+
+```{r}
+colSums(is.na(app_data))
+```
+
+- drop_na() will remove rows that have NA
+
+- replace_na() will replace NA observations with a specific value
+
+- Factor is great to apply to categorical data, as long as all of the levels are known
+
+- use unique() to identify possible factor levels
+
+```{r}
+unique(app_data$Sex)
+unique(app_data$Diagnosis)
+unique(app_data$Severity)
+```
+
+Make new factor variables for these:
+```{r}
+app_data <- app_data |>
+  mutate(SexF = factor(Sex, levels = c("female", "male"), labels = c("Female", "Male")),
+         DiagnosisF = as.factor(Diagnosis),
+         SeverityF = as.factor(Severity))
+app_data |>
+  select(SexF, DiagnosisF, SeverityF)
+```
+
+- Contingency Tables using summarize()
+
+- One-way table
+```{r}
+app_data |>
+    group_by(SexF) |> # summarize respects the groupings
+    drop_na(SexF) |>
+    summarize(count = n()) # defines new variable 'count', while n() just adds up the qty
+```
+
+- Two-way table
+```{r}
+app_data |>
+    group_by(SexF, DiagnosisF) |> 
+    drop_na(SexF, DiagnosisF) |>
+    summarize(count = n()) |> # defines new variable 'count', while n() just adds up the qty
+    pivot_wider(names_from = DiagnosisF, values_from = count)
+```
+
+- Bar Charts for visualization of categorical data
+
+- Getting mean. median, standard deviation, etc using summarize()
+
+```{r}
+app_data |>
+    group_by(Diagnosis) |>
+    drop_na(Diagnosis, Weight) |>
+    summarize(mean_weight = mean(Weight),
+              median_weight = median(Weight),
+              stdev_weight = sd(Weight))
+```
+
+More flexible usage of summary() with across() and auto generated names
+
+```{r}
+app_data |>
+  group_by(Diagnosis) |>
+  drop_na(Diagnosis, Weight) |>
+  summarize(across(Weight, .fns = list ("mean" = mean,
+                                        "median" = median,
+                                        "var" = var,
+                                        "sd" = sd,
+                                        "IQR" = IQR), .names = "{.fn}_{.col}"))
+  
+  
+```
+
+- covariance and correlation
+
+```{r}
+app_data |>
+  drop_na(Weight, Age) |>
+  summarize(cov = cov(Weight, Age), cor(Weight, Age))
+```
+
+- again finding the above, now by group
+
+```{r}
+app_data |>
+  drop_na(Weight, Age) |>
+  group_by(Diagnosis) |>
+  summarize(cov = cov(Weight, Age), cor(Weight, Age))
+```
+
