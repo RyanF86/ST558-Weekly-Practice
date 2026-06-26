@@ -1,0 +1,102 @@
+---
+title: "Week #6"
+format: pdf
+editor: visual
+---
+
+## apply() family of functions
+
+- apply() family of functions are faster than for loops
+- apply() will apply a function over an array or matrix
+- lapply() will apply a function to every element of a list
+- sapply() is a simplified version
+
+```{r}
+library(Lahman)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+my_batting <- Batting[, c("playerID", "teamID", "G", "AB", "R", "H", "X2B", "X3B", "HR")] |>
+  as_tibble()
+my_batting
+```
+
+- Use apply() to find summaries of the columns
+
+```{r}
+apply(X = my_batting,
+  MARGIN = 2, # apply to each column
+  FUN = summary,
+  na.rm = TRUE)
+```
+
+- Note: Because apply() assumes similar data types, summary gives us unhelpful results since everything is coerced to characters.
+
+- Lets try again, this time just selecting numeric data
+
+```{r}
+apply(X = my_batting |>
+        select(where(is.numeric)),
+  MARGIN = 2, # apply to each column
+  FUN = summary,
+  na.rm = TRUE)
+```
+
+- Now we get useful results
+
+- Sometimes we can define a temporary function with apply(). This is known as an *anonymous* function or *lambda* function
+
+```{r}
+custom_batting_summary <- apply(X = my_batting |>
+                                  select(where(is.numeric)),
+                                MARGIN = 2, # apply to each column
+                                FUN = function(x){
+                                  temp <- c(mean(x), sd(x))  # find the mean and sd of each column and store as this vector
+                                  names(temp) <- c("mean", "sd")  # apply names
+                                  temp # return temp
+                                }
+)
+custom_batting_summary
+```
+
+- We can also have additional arguments
+
+```{r}
+custom_batting_summary <- apply(X = my_batting |>
+                                  select(where(is.numeric)),
+                                MARGIN = 2, # apply to each column
+                                FUN = function(x, trim){  # two arguments here
+                                  temp <- c(mean(x, trim), sd(x))  # find the trimmed mean and sd of each column and store as this vector
+                                  names(temp) <- c("mean", "sd")  # apply names
+                                  temp # return temp
+                                },
+                                trim = 0.1 # define second argument here
+)
+custom_batting_summary
+```
+
+- Now lets try lapply()
+
+- First create some list data:
+
+```{r}
+set.seed(10) # set randomization seed
+my_list <- list(rnorm(100), runif(10), rgamma(40, shape = 1, rate =1))
+my_list
+```
+- Find mean of each list element
+
+```{r}
+lapply(X = my_list, FUN = mean, trim = 0.1, na.rm = TRUE) # trim and na.rm get passed into mean as arguments
+```
+
+- Notes this returns a list of three elements, rather than a vector of the results
+
+- sapply() tries to simplify if possible
+
+```{r}
+sapply(X = my_list, FUN = mean, trim = 0.1, na.rm = TRUE)
+```
+
