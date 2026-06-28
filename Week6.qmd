@@ -100,3 +100,39 @@ lapply(X = my_list, FUN = mean, trim = 0.1, na.rm = TRUE) # trim and na.rm get p
 sapply(X = my_list, FUN = mean, trim = 0.1, na.rm = TRUE)
 ```
 
+## purrr() and List Columns
+
+```{r}
+library(purrr)
+```
+
+- purrr() is an alternative to apply() functions
+
+- map() is similar to lapply() and always returns a list
+
+```{r}
+set.seed(10)
+my_list <- list(rnorm(100), runif(10), rgamma(40, shape = 1, rate = 1))
+map(my_list, mean) # select data, then map the mean function to each element of the list
+```
+
+```{r}
+map(my_list, 2) # graps the second element of each list
+```
+
+- making anonymous functions with map()
+
+```{r}
+map(my_list, \(x) mean(x)) # in this case the custom function is just the mean
+```
+
+```{r}
+map(my_list, \(x) max(x)-min(x)) # here the custom function is max-min
+```
+
+- there are versions of map functions to return vectors of specific type
+
+```{r}
+map_dbl(my_list, mean)
+```
+
