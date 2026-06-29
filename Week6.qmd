@@ -130,9 +130,191 @@ map(my_list, \(x) mean(x)) # in this case the custom function is just the mean
 map(my_list, \(x) max(x)-min(x)) # here the custom function is max-min
 ```
 
-- there are versions of map functions to return vectors of specific type
+- there are versions of map functions to return vectors of specific type: map_dbl() for double, map_chr() for character, map_lgl() for logical
 
 ```{r}
-map_dbl(my_list, mean)
+map_dbl(my_list, mean) # returns result as a vector of doubles
+```
+- map2() can be used to apply a function to two similar lists
+
+```{r}
+my_list_2 <- list(rnorm(100), runif(10), rgamma(40, shape = 1, rate = 1))
+map2(my_list, my_list_2, \(x, y) mean(x)-mean(y))
 ```
 
+- pmap() can be used for any number of similar lists
+
+```{r}
+my_list_3 <- list(rnorm(100), runif(10), rgamma(40, shape = 1, rate = 1))
+
+pmap(list(my_list, my_list_2, my_list_3), # send three lists into pmap
+     \(x, y, z) (mean(x)-mean(y))/mean(z))
+```
+
+- walk() allows you to use a side-effect function (i.e. histogram, summary table, etc) but then continue operating on the original data
+
+```{r}
+par(mfrow = c(1, 3))
+#now apply the function but still have the original data
+my_list |>
+  walk(hist) |>
+  map_dbl(mean)
+# without walk, the mean would be applied to the histogram object
+```
+
+- There are tons of purrr functions for mapping with various inputs/outputs
+
+- List columns:  One column of data frame could be a list of multiple items
+
+```{r}
+irisWdiffs <- iris |>
+                  as_tibble() |>
+                  mutate(diffs = pmap(list(Sepal.Length, Sepal.Width, Petal.Length, Petal.Width), 
+                                      \(x, y, z, w) list(x-y, x-z, x-w))) |> # create diffs, which calculates three items for each row:  x-y, x-z, x-w
+                  select(diffs, everything())
+
+irisWdiffs
+```
+
+- Now there are many options to grab the elements from this new diff column using pull() and/or pluck():
+
+```{r}
+irisWdiffs$diffs[[30]][[2]] # gets the x-z term of the 30th row from diffs
+pull(irisWdiffs, diffs)[[30]][[2]] # this also works
+pluck(irisWdiffs$diffs, 30, 2) # this also works
+irisWdiffs |> pull(diffs) |> pluck(30, 2) # inside pipe chain
+```
+
+## Advanced Function Writing
+
+- `...` for unnamed arguments
+
+```{r}
+standardize <- function(vector, center = TRUE, scale = TRUE, ...) { # here we allow for unnamed arguments that will be passed into mean and stdev below
+    mean <- mean(vector, ...)
+    stdev <- sd(vector, ...)
+    if (center) {
+        vector <- vector - mean
+    }
+    if (scale) {
+        vector <- vector / stdev
+    }
+    return(list(result = vector, mean = mean, sd = stdev))
+}
+```
+ 
+- we can use for things like na.rm
+
+```{r}
+standard_Ozone <- standardize(airquality$Ozone, na.rm = TRUE)
+standard_Ozone$mean
+standard_Ozone$sd
+```
+
+- another example showing how we can return/access the unnamed arguments
+
+```{r}
+f <- function(x, ...){
+    unnamed <- list(...) # saving the unnamed arguments as a list
+    modifyX <- x^2  
+    return(list(newX = modifyX, elipses = unnamed))
+}
+f(x = 10, a = 1, b = list(char = "hey there", num = 1:3))
+```
+
+- tidyverse style functions
+
+- example:
+
+```{r}
+iris |>
+  group_by(Species) |>
+  summarize(across(where(is.numeric), 
+                   list("mean" = mean), 
+                   .names = "{.fn}_{.col}"))
+```
+
+- Now create a function to do the same
+
+```{r}
+find_group_mean <- function(.df, group){
+    .df |>
+    group_by({{group}}) |> # {{}} is used to pass in unquoted column names to a tidyverse function
+    summarize(across(where(is.numeric), 
+                     list("mean" = mean), 
+                     .names = "{.fn}_{.col}"))
+}
+find_group_mean(iris, Species)
+```
+
+- instead of {{}}, you can also do enquo() with !!() or quos() with !!!()
+
+- those must be used with ... arguments
+
+```{r}
+find_group_mean <- function(.df, ...){
+  group_vars <- quos(...) # puts the additional arguments as quotes
+  .df |>
+    group_by(!!!group_vars) |> # strips the quotes to pass the names in
+    summarize(across(where(is.numeric), 
+                     list("mean" = mean), 
+                     .names = "{.fn}_{.col}"))
+}
+find_group_mean(CO2, Type, Treatment)
+```
+
+- Now lets try using inputs to name variables
+
+```{r}
+find_group_mean <- function(.df, group, column){
+  group_name <- enquo(group)
+  column_name <- enquo(column)
+  column_label <- paste0("mean_", as_label(column_name))
+  .df |>
+    group_by(!!group_name) |>
+    summarize(!!(column_label) := mean(!!column_name))
+}
+find_group_mean(iris, Species, Sepal.Length)
+```
+
+- Pipeable functions
+
+  - transformation functions return a modification of the argument
+  
+  - side-effects don't (i.e. print() or write_csv()
+  
+- side-effect functions need invisible() to remain pipeable
+
+```{r}
+print_num_obs <- function(.df) {
+    cat("The number of observations in the data set is ", 
+        nrow(.df), 
+        "\n", 
+        sep = "")
+  invisible(.df) # makes sure the .df continues down the pipe, but does not print
+}
+iris |> 
+  print_num_obs() |>
+  summarize(mean = mean(Sepal.Length))
+```
+
+- Lazy Evaluation: 
+
+  - R normally evaluates arguments only when needed, and ignores the rest
+  
+  - Evaluation can be forced with force()
+  
+- Environments and Lexical Scoping
+
+  - R first searches global environment for the function to be used, then subsequent packages that are loaded
+  
+  - Can see this path with search()
+  
+```{r}
+search()
+```
+
+  - functions create temporary environments, which is why variables in functions don't conflict with variables/functions outside
+  
+  - functions will first look for variables within the temporary environment for the variable name, before looking outside
+  
