@@ -1,6 +1,8 @@
 library(shiny)
 library(bslib)
 library(bsicons)
+library(maps)
+library(mapproj)
 
 ui <- page_sidebar(
   title = "censusVis",
@@ -24,8 +26,12 @@ ui <- page_sidebar(
       ) 
     ),
   textOutput("selected_var"),
-  textOutput("selected_range")
+  textOutput("selected_range"),
+  card(plotOutput("map"))
   )
+
+source("helpers.R")
+counties <- readRDS("data/counties.rds")
 
 # Define server logic ----
 server <- function(input, output) {
@@ -34,6 +40,9 @@ server <- function(input, output) {
   })
   output$selected_range <- renderText({
     paste("You have chosen a range that goes from", input$range[1] ,"to" , input$range[2])
+  })
+  output$map <- renderPlot({
+    percent_map(counties[[tolower(substring(input$var, 9))]], "darkgreen", input$var, input$range[1], input$range[2])
   })
 }
 
