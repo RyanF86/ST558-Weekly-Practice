@@ -1,0 +1,118 @@
+---
+title: "Week #9"
+format: pdf
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+```
+
+## Modeling Concepts
+
+```{r}
+# read in bike data and create some variables
+bike_data <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/bikeDetails.csv")
+bike_data <- bike_data |> 
+  mutate(log_selling_price = log(selling_price), 
+         log_km_driven = log(km_driven)) |>
+  select(log_km_driven, log_selling_price, everything())
+bike_data
+# log selling price is the target(response) variable
+```
+
+- perform a regression task, i.e. predicting the response values
+
+  - log_selling_price is the response variable
+
+  - log_km_driven is the predictor variable
+
+```{r}
+ggplot(bike_data, aes(x = log_km_driven, y = log_selling_price)) +
+  geom_point() +
+  geom_smooth(method = "lm") # fits simple linear regression line
+```
+
+```{r}
+ggplot(bike_data, aes(x = log_km_driven, y = log_selling_price)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2))
+# quadratic predictor (i.e. linear model, but the predictor is squared)
+```
+
+```{r}
+ggplot(bike_data, aes(x = log_km_driven, y = log_selling_price)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2) + I(x^3))
+# here we have an x^3 term
+```
+
+- Need to quantify how well the model is predicting
+
+```{r}
+ggplot(bike_data, aes(x = log_km_driven, y = log_selling_price)) +
+  geom_point() +
+  geom_smooth()
+# generalized additive model
+```
+
+- Also consider regression tree models (disjointed non-linear)
+
+- Loss function: criteria used to fit a model (i.e. y-yhat, (y-yhat)\^2, or \|y-yhat\|)
+
+- Goal is to optimize/minimize the loss function
+
+- `lm()` is the linear model function
+
+- use formula notation: `y ~ x -> response ~ model terms`
+
+```{r}
+slr_fit <- lm(log_selling_price ~ log_km_driven, data = bike_data)
+slr_fit
+```
+
+- use summary() on the model to get p-values for the coefficients
+
+```{r}
+summary(slr_fit)
+```
+
+- use plot() on the model for fitted diagnostics
+
+```{r}
+plot(slr_fit)
+```
+
+- use `predict()` to test our fit with new data
+
+```{r}
+predict(slr_fit, newdata = data.frame(log_km_driven = c(log(1000), log(10000), log(100000))))
+
+```
+
+```{r}
+# use exp to exponentiate (reverse) the log
+exp(predict(slr_fit, newdata = data.frame(log_km_driven = c(log(1000), log(10000), log(100000)))))
+```
+
+- we use a [loss]{.underline} function to fit the model, and a [metric]{.underline} to evaluate the model
+
+- metric can be the same as the loss, but not necessarily
+
+- often we use RMSE (root mean squared error) as our metric
+
+- Alternatives:  MSE (mean squared error) or MAE (mean absolute error) or Huber Loss (doesn't penalize large misakes as much)
+
+```{r}
+# predictions for the x's the model was trained on
+head(predict(slr_fit))
+```
+
+```{r}
+# MSE
+mean((bike_data$log_selling_price-predict(slr_fit))^2)
+# RMSE
+sqrt(mean((bike_data$log_selling_price-predict(slr_fit))^2))
+```
+
+- Ideally train the model on a training data set, and then test the model on a test data set.
