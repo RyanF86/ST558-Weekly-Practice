@@ -6,6 +6,7 @@ editor: visual
 
 ```{r}
 library(tidyverse)
+library(tidymodels)
 ```
 
 ## Modeling Concepts
@@ -101,7 +102,7 @@ exp(predict(slr_fit, newdata = data.frame(log_km_driven = c(log(1000), log(10000
 
 - often we use RMSE (root mean squared error) as our metric
 
-- Alternatives:  MSE (mean squared error) or MAE (mean absolute error) or Huber Loss (doesn't penalize large misakes as much)
+- Alternatives: MSE (mean squared error) or MAE (mean absolute error) or Huber Loss (doesn't penalize large misakes as much)
 
 ```{r}
 # predictions for the x's the model was trained on
@@ -116,3 +117,238 @@ sqrt(mean((bike_data$log_selling_price-predict(slr_fit))^2))
 ```
 
 - Ideally train the model on a training data set, and then test the model on a test data set.
+
+```{r}
+library(tidymodels)
+set.seed(10)
+bike_split <- initial_split(bike_data, prop = 0.7) # define function to perform 70/30 split
+bike_train <- training(bike_split)
+bike_test <- testing(bike_split)
+bike_train
+bike_test
+```
+
+- now create 3 different models with training data
+
+```{r}
+reg1 <- lm(log_selling_price ~ year, data = bike_train) # linear model based on year
+coef(reg1)
+```
+
+```{r}
+reg2 <- lm(log_selling_price ~ log_km_driven, data = bike_train) # linear model based on log km driven
+coef(reg2)
+```
+
+```{r}
+reg3 <- lm(log_selling_price ~ year + log_km_driven, data = bike_train) # linear model based on year and log km driven
+coef(reg3)
+```
+
+- check predictions with first model on the training data
+
+```{r}
+bike_train |>
+  mutate(mod1_preds = predict(reg1)) |>
+  select(log_selling_price, year, mod1_preds)
+```
+
+```{r}
+# our own calculation for training RMSE
+sqrt(mean((bike_train$log_selling_price - predict(reg1))^2))
+```
+
+- alternatively there is rmse_vec() to do this
+
+```{r}
+#using yardstick on all three models
+rmse_vec(bike_train$log_selling_price, predict(reg1))
+rmse_vec(bike_train$log_selling_price, predict(reg2))
+rmse_vec(bike_train$log_selling_price, predict(reg3))
+```
+
+- but really we should be testing on the test dataset
+
+```{r}
+#obtain the test set RMSE for each model
+rmse_vec(bike_test$log_selling_price, predict(reg1, newdata = bike_test))
+rmse_vec(bike_test$log_selling_price, predict(reg2, newdata = bike_test))
+rmse_vec(bike_test$log_selling_price, predict(reg3, newdata = bike_test))
+```
+
+- so the third model has the lowest RMSE on the test data set
+
+- alternatively, rmse() can be used instead of rmse_Vec() if we create the predictions within the dataframe
+
+```{r}
+# calculate rmse again with the first model on the test data set
+bike_test |>
+  select(log_selling_price, log_km_driven) |>
+  mutate(model_1_preds = predict(reg1, newdata = bike_test)) |>
+  rmse(truth = log_selling_price, estimate = model_1_preds)
+```
+
+- 10 Fold Cross-Validation
+
+```{r}
+nrow(bike_data) # confirm number of observations is 1061
+```
+
+```{r}
+size_fold <- floor(nrow(bike_data)/10) # each fold will be 106 (10 folds)
+size_fold
+```
+- Use sample() to reorder the 1061 indices and save as random_indices
+
+```{r}
+set.seed(8)
+random_indices <- sample(1:nrow(bike_data), size = nrow(bike_data), replace = FALSE)
+#see the random reordering
+head(random_indices)
+```
+
+- Save folds in a list
+
+```{r}
+#create a list to save our folds in
+folds <- list()
+#now cycle through our random indices vector and take the appropriate observations to each fold
+for(i in 1:10){
+  if (i < 10) {
+    fold_index <- seq(from = (i-1)*size_fold +1, to = i*size_fold, by = 1) # fold_index is 1:106, then 107:212, etc...
+    folds[[i]] <- bike_data[random_indices[fold_index], ] # use fold_index and random indices to select from bike_data
+  } else { #for i = 10 we need to have 1 more observation 
+    fold_index <- seq(from = (i-1)*size_fold +1, to = length(random_indices), by = 1)
+    folds[[i]] <- bike_data[random_indices[fold_index], ]
+  }
+}
+folds[[1]]
+```
+
+
+- Now make a function to take in data and return with a list containing the number of folds of the data
+
+```{r}
+get_cv_splits <- function(data, num_folds){
+  #get fold size
+  size_fold <- floor(nrow(data)/num_folds)
+  #get random indices to subset the data with
+  random_indices <- sample(1:nrow(data), size = nrow(data), replace = FALSE)
+  #create a list to save our folds in
+  folds <- list()
+  #now cycle through our random indices vector and take the appropriate observations to each fold
+  for(i in 1:num_folds){
+    if (i < num_folds) {
+      fold_index <- seq(from = (i-1)*size_fold +1, to = i*size_fold, by = 1)
+      folds[[i]] <- data[random_indices[fold_index], ]
+    } else {
+      fold_index <- seq(from = (i-1)*size_fold +1, to = length(random_indices), by = 1)
+      folds[[i]] <- data[random_indices[fold_index], ]
+    }
+  }
+  return(folds)
+}
+folds <- get_cv_splits(bike_data, 10)
+```
+
+- Now fit the data on 9 of 10 folds, while pulling out one as the test fold
+
+```{r}
+#set the test fold number
+test_number <- 10
+#pull out the testing fold
+test <- folds[[test_number]]
+
+#remove the test fold from the list and use the rest as training data
+train_list <- folds[-test_number]
+#note that train is only length 9
+length(train_list)
+```
+- Condense the 9 folds into a single training set using reduce() and rbind()
+
+```{r}
+#combine the other folds into train set
+train <- purrr::reduce(train_list, rbind)
+#the other nine folds are now in train
+train
+```
+
+- Write a function to fit the model, with x as a vector of predictors and y as a string for the response, and x as a vector of predictors
+
+```{r}
+find_test_metric <- function(y, x, folds, test_number){
+  #pull out the testing fold
+  test <- folds[[test_number]]
+  #remove the test fold from the list
+  train_list <- folds[-test_number]
+  #combine the other folds into train set
+  train <- purrr::reduce(train_list, rbind)
+  #fit our model. reformulate allows us to take strings and turn that into a formula
+  fit <- lm(reformulate(termlabels = x, response = y), data = train)
+  #get test error
+  (yardstick::rmse_vec(test[[y]], predict(fit, newdata = test)))^2
+}
+
+#double check it works
+find_test_metric(y = "log_selling_price", 
+                 x = "log_km_driven", 
+                 folds = folds, 
+                 test_number = 10)
+```
+
+- Now we can use map() to run through this 10 times, each using a different fold as the test
+
+```{r}
+folds <- get_cv_splits(bike_data, 10)
+purrr::map(1:10, find_test_metric, 
+           y = "log_selling_price", 
+           x = "log_km_driven", 
+           folds = folds)
+```
+- Combine all these values into one:  the RMSE of the average MSE
+
+```{r}
+sum_mse <- purrr::map(1:10, 
+                      find_test_metric, 
+                      y = "log_selling_price", 
+                      x = "log_km_driven", 
+                      folds = folds) |>
+  reduce(.f = sum)
+sqrt(sum_mse/10)
+```
+
+- Now put that into a function:
+
+```{r}
+find_cv <- function(y, x, folds, num_folds){
+  sum_mse <- purrr::map(1:num_folds, 
+                        find_test_metric, 
+                        y = y, 
+                        x =x, 
+                        folds = folds) |>
+    reduce(.f = sum)
+  return(sqrt(sum_mse/num_folds))
+}
+find_cv("log_selling_price", "log_km_driven", folds, num_folds = 10)
+```
+- Let's compare different models on this dataset with 10 fold CV
+
+```{r}
+folds <- get_cv_splits(bike_data, 10)
+
+cv_reg_1 <- find_cv("log_selling_price", "year", folds, num_folds = 10)
+cv_reg_2 <- find_cv("log_selling_price", "log_km_driven", folds, num_folds = 10)
+cv_reg_3 <- find_cv("log_selling_price", c("year", "log_km_driven"), folds, num_folds = 10)
+
+c("year" = cv_reg_1, "log_km_driven" = cv_reg_2, "both" = cv_reg_3)
+```
+
+- Note, the model that uses both predictors has the lowest CV RMSE
+
+- Fit this 'best model' using the full dataset
+
+```{r}
+best_fit <- lm(log_selling_price ~ year + log_km_driven, data = bike_data)
+best_fit
+```
+
