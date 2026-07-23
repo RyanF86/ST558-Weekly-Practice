@@ -200,3 +200,170 @@ usual_fit <- almost_usual_fit$fit
 summary(usual_fit)
 ```
 
+## Logistic Regression Models
+
+- Logistic regression useful when we have a binary response variable
+
+- Attempting to do linear regression with binary response doesn't work.  Here's an example:
+
+```{r}
+library(tidyverse)
+heart_data <- read_csv("https://www4.stat.ncsu.edu/online/datasets/heart.csv") |>
+  filter(RestingBP > 0) #remove one value
+heart_data |> select(HeartDisease, everything()) #Cholesterol has many values set to 0 so we ignore that
+```
+
+```{r}
+heart_data |>
+  group_by(HeartDisease) |> 
+  summarize(count = n())
+```
+
+```{r}
+heart_data |>
+  group_by(HeartDisease) |>
+  summarize(mean_Age = mean(Age),
+            mean_RestingBP  = mean(RestingBP))
+```
+
+```{r}
+ggplot(heart_data, aes(x = Age, y = HeartDisease, color = RestingBP)) +
+         geom_point() +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+ggplot(heart_data, aes(x = Age, y = HeartDisease, color = RestingBP)) +
+         geom_jitter() + # jitter helps to spread out overlapping points
+  geom_smooth(method = "lm")
+```
+
+```{r}
+# show heart disease rates by age groups
+Age_x <- seq(from = min(heart_data$Age), to = max(heart_data$Age), length = 20)
+heart_data_grouped <- heart_data |>
+  mutate(Age_groups = cut(Age, breaks = Age_x)) |>
+  group_by(Age_groups) |>
+  summarize(HeartDisease_mean = mean(HeartDisease), counts = n())
+heart_data_grouped
+```
+
+```{r}
+ggplot(data = heart_data, aes(x = Age, y = HeartDisease)) +
+  geom_jitter(aes(color = RestingBP)) +
+  geom_point(data = heart_data_grouped, aes(x = Age_x, y = HeartDisease_mean, size = counts)) +
+  geom_smooth(method = "lm", color = "Green")
+# now the line makes a little more sense with these groups shown on the graph
+```
+- Note, line fits will have regions where resonse (proportion) is less than 0 or greater than 1!
+
+- Let's do a logistic regression model fit
+
+```{r}
+library(tidymodels)
+set.seed(3557)
+heart_data <- heart_data |> mutate(HeartDisease = factor(HeartDisease)) # make sure response is made into a factor
+heart_split <- initial_split(heart_data, prop = 0.8)
+heart_train <- training(heart_split)
+heart_test <- testing(heart_split)
+heart_CV_folds <- vfold_cv(heart_train, 10)
+```
+
+```{r}
+# two predictors
+LR1_rec <- recipe(HeartDisease ~ Age + Sex, 
+                  data = heart_train) |>
+  step_normalize(Age) |>
+  step_dummy(Sex)
+
+# five predictors
+LR2_rec <- recipe(HeartDisease ~ Age + Sex + ChestPainType + RestingBP + RestingECG, 
+                  data = heart_train) |>
+  step_normalize(all_numeric(), -HeartDisease) |>
+  step_dummy(Sex, ChestPainType, RestingECG)
+
+# seven predictors
+LR3_rec <- recipe(HeartDisease ~ Age + Sex + ChestPainType + RestingBP + RestingECG + MaxHR + ExerciseAngina, 
+                  data = heart_train) |>
+  step_normalize(all_numeric(), -HeartDisease) |>
+  step_dummy(Sex, ChestPainType, RestingECG, ExerciseAngina)
+
+# this is just to check what we've got
+LR3_rec |> prep(heart_train) |> bake(heart_train) |> colnames()
+
+# numeric variables are normalized
+```
+
+```{r}
+# selecting logistic regression model
+LR_spec <- logistic_reg() |>
+  set_engine("glm")
+```
+
+```{r}
+LR1_wkf <- workflow() |>
+  add_recipe(LR1_rec) |>
+  add_model(LR_spec)
+LR2_wkf <- workflow() |>
+  add_recipe(LR2_rec) |>
+  add_model(LR_spec)
+LR3_wkf <- workflow() |>
+  add_recipe(LR3_rec) |>
+  add_model(LR_spec)
+```
+
+- Instead of evaluating model based on RMSE, we can do accuracy (correct predictions/ total predictions) or Log-loss
+
+```{r}
+# fit by minimizing log-loss
+LR1_fit <- LR1_wkf |>
+  fit_resamples(heart_CV_folds, metrics = metric_set(accuracy, mn_log_loss))
+LR2_fit <- LR2_wkf |>
+  fit_resamples(heart_CV_folds, metrics = metric_set(accuracy, mn_log_loss))
+LR3_fit <- LR3_wkf |>
+  fit_resamples(heart_CV_folds, metrics = metric_set(accuracy, mn_log_loss))
+```
+
+```{r}
+# collect metrics
+rbind(LR1_fit |> collect_metrics(),
+      LR2_fit |> collect_metrics(),
+      LR3_fit |> collect_metrics()) |>
+  mutate(Model = c("Model1", "Model1", "Model2", "Model2", "Model3", "Model3")) |>
+  select(Model, everything())
+```
+
+- now take our best model (model 3 by lowest log-loss and highest accuracy)
+
+```{r}
+#compare to proportion of 1's in training data
+mean(heart_train$HeartDisease == "1")
+
+# sanity check, accuracy should at least beat .56
+```
+- Confusion Matrix on third workflow gives us breakdown of the correct and incorrect predictions
+
+```{r}
+LR_train_fit <- LR3_wkf |>
+  fit(heart_train)
+conf_mat(heart_train |> mutate(estimate = LR_train_fit |> predict(heart_train) |> pull()), #data
+         HeartDisease, #truth
+         estimate) #estimate from model
+```
+
+- Now evaluate our model on the test set: metrics and confusion matrix
+```{r}
+LR3_wkf |>
+  last_fit(heart_split, metrics = metric_set(accuracy, mn_log_loss)) |>
+  collect_metrics()
+
+conf_mat(heart_test |> mutate(estimate = LR_train_fit |> predict(heart_test) |> pull()), HeartDisease, estimate)
+```
+- Do a final fit of the favored model using the full data set
+
+```{r}
+final_model <- LR3_wkf |>
+  fit(heart_data)
+tidy(final_model)
+```
+
