@@ -367,3 +367,255 @@ final_model <- LR3_wkf |>
 tidy(final_model)
 ```
 
+## Tree Based Methods
+
+```{r}
+library(tree) #rpart is also often used
+```
+
+- Here is an example tree model
+
+```{r}
+fitTree <- tree(dist ~ speed, data = cars) #default splitting is deviance
+plot(fitTree)
+text(fitTree)
+```
+
+- Compare tree results (orange) to simple linear regression (blue)
+
+```{r}
+library(tidyverse)
+ggplot(cars, aes(x = speed, y = dist)) + 
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, size = 2) + 
+  geom_segment(x = 0, xend = 9.5, y = 10.67, yend = 10.67, col = "Orange", size = 2) +
+  geom_segment(x = 9.5, xend = 12.5, y = 23.22, yend = 23.22, col = "Orange", size = 2) +
+  geom_segment(x = 12.5, xend = 17.5, y = 39.75, yend = 39.75, col = "Orange", size = 2) +
+  geom_segment(x = 17.5, xend = 23.5, y = 55.71, yend = 55.71, col = "Orange", size = 2) +
+  geom_segment(x = 23.5, xend = max(cars$speed), y = 92, yend = 92, col = "Orange", size = 2)
+```
+
+- Optimal splits are determined based on minimizing sum of squared residuals
+
+- Let's look at the bike data again and compare the regreesion tree method to the MLR and LASSO models
+
+```{r}
+set.seed(10)
+library(tidyverse)
+library(tidymodels)
+bike_data <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/bikeDetails.csv") |>
+  mutate(log_selling_price = log(selling_price),
+         log_km_driven = log(km_driven),
+         owners = ifelse(owner == "1st owner", "single", "multiple")) |>
+  select(-selling_price)
+```
+```{r}
+#save creation of new variables for now!
+bike_split <- initial_split(bike_data, prop = 0.7)
+bike_train <- training(bike_split)
+bike_test <- testing(bike_split)
+bike_train
+```
+
+```{r}
+bike_CV_folds <- vfold_cv(bike_train, 10)
+```
+
+```{r}
+tree_rec <- recipe(log_selling_price ~ ., data = bike_train) |>
+  update_role(name, new_role = "ID") |>
+  step_log(km_driven) |>
+  step_rm(ex_showroom_price) |>
+  step_dummy(owner, seller_type) |>
+  step_normalize(all_numeric(), -all_outcomes()) # Note:  normalization is NOT required for tree models, but we do it here for consistency with the MLR and LASSO recipes
+tree_rec
+```
+
+- Note:  no need for interaction terms with the tree model.  The tree method inherently includes these relationships due to the splitting
+
+```{r}
+tree_mod <- decision_tree(tree_depth = tune(), # maximum number of splits from root to leaf
+                          min_n = 20, # minimum number of observations to be eligible for splitting
+                          cost_complexity = tune()) |> # 'prunes' the tree after it is built (i.e. penalizing complexity)
+  set_engine("rpart") |>
+  set_mode("regression")
+```
+
+```{r}
+tree_wkf <- workflow() |>
+  add_recipe(tree_rec) |>
+  add_model(tree_mod)
+```
+
+
+```{r}
+# without specifying the tuning options, they are selected randomly (10 total combinations)
+temp <- tree_wkf |> 
+  tune_grid(resamples = bike_CV_folds) #uses defaults from dials
+temp |> 
+  collect_metrics()
+```
+
+```{r}
+# Here we say specifically how many combinations of tuning variables we want (10 x 5 = 50 combinations)
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          levels = c(10, 5))
+```
+
+```{r}
+tree_fits <- tree_wkf |> 
+  tune_grid(resamples = bike_CV_folds,
+            grid = tree_grid)
+tree_fits
+```
+
+```{r}
+tree_fits |>
+  collect_metrics()
+```
+
+- Let's plot these metrics as a function of the tuned model parameters:
+
+```{r}
+tree_fits |>
+  collect_metrics() |>
+  mutate(tree_depth = factor(tree_depth)) |>
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+```{r}
+# just look at smallest RMSE
+tree_fits |>
+  collect_metrics() |>
+  filter(.metric == "rmse") |>
+  arrange(mean)
+```
+
+
+- so the lowest RMSE tree model uses 1e-3 cost_complexity, tree_depth of 4, and min_n of 20
+
+```{r}
+# this selects the best model's tuning parameters
+
+tree_best_params <- select_best(tree_fits, metric = "rmse")
+tree_best_params
+```
+
+```{r}
+tree_final_wkf <- tree_wkf |>
+  finalize_workflow(tree_best_params)
+```
+
+```{r}
+tree_final_fit <- tree_final_wkf |>
+  last_fit(bike_split)
+tree_final_fit
+```
+
+```{r}
+# here is the RMSE of the selected model on the full training set vs the test set
+tree_final_fit |>
+  collect_metrics()
+```
+
+- Here's the details of this final model:
+
+```{r}
+tree_final_model <- extract_workflow(tree_final_fit) 
+tree_final_model
+```
+
+- The above tree model is best viewed as a plot (here saved as a higher res .png)
+
+```{r}
+#| fig-width: 4
+#| fig-height: 2
+#| dpi: 300
+
+library(rpart.plot)
+
+tree_final_model |>
+  extract_fit_engine() |>
+  rpart.plot::rpart.plot(roundint = FALSE, digits = 4)
+
+
+# Note: The owner_X2nd.owner is a dummy variable for "2nd owner", and the >= 1.2 can be ignored.  Just think of the split as 0/1
+```
+
+- Now we can compare this to the MLR and LASSO models
+
+```{r}
+#set up how we'll fit our linear model
+MLR_spec <- linear_reg() |>
+  set_engine("lm")
+#define the model
+MLR_recipe3 <- recipe(log_selling_price ~ log_km_driven + owners + year,
+                      data = bike_train) |>
+  step_dummy(owners) |>
+  step_interact(~log_km_driven:starts_with("owner") + log_km_driven:year + starts_with("owner"):year)
+#workflow setup
+MLR_wkf3 <- workflow() |>
+  add_recipe(MLR_recipe3) |>
+  add_model(MLR_spec)
+#fit model on full training data
+MLR_final <-  MLR_wkf3 |>
+  last_fit(bike_split)
+```
+
+```{r}
+#set up how we'll fit our LASSO model
+LASSO_spec <- linear_reg(penalty = tune(), mixture = 1) |>
+  set_engine("glmnet")
+#define the model
+LASSO_recipe <- recipe(log_selling_price ~ log_km_driven + owners + year, 
+                      data = bike_train) |>
+  step_dummy(owners) |>
+  step_normalize(log_km_driven, year)
+#workflow setup
+LASSO_wkf <- workflow() |>
+  add_recipe(LASSO_recipe) |>
+  add_model(LASSO_spec)
+#find the best tuning parameter
+LASSO_grid <- LASSO_wkf |>
+  tune_grid(resamples = bike_CV_folds,
+            grid = grid_regular(penalty(), levels = 200)) 
+```
+
+```{r}
+#finalize the workflow and find the best model on the training set
+LASSO_final <- LASSO_wkf |>
+  finalize_workflow(LASSO_grid |>
+                      select_best(metric = "rmse")) |>
+  last_fit(bike_split)
+```
+
+```{r}
+rbind(
+  MLR_final |>
+    collect_metrics() |> 
+    mutate(Model = "MLR", .before = ".metric"), 
+  LASSO_final |>
+    collect_metrics() |> 
+    mutate(Model = "LASSO", .before = ".metric"), 
+  tree_final_fit |>
+    collect_metrics() |> 
+    mutate(Model = "TREE", .before = ".metric")
+)
+```
+
+- So the MLR model had the lowest RMSE
+
+- Finally, fit the best model (MLR) to the full data set
+
+```{r}
+final_model <- MLR_wkf3 |>
+  fit(bike_data) 
+tidy(final_model)
+```
+
