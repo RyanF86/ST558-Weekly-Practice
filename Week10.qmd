@@ -27,6 +27,7 @@ bike_split <- initial_split(bike_data, prop = 0.7)
 bike_train <- training(bike_split)
 bike_test <- testing(bike_split)
 ```
+
 ```{r}
 #create folds
 bike_CV_folds <- vfold_cv(bike_train, 10)
@@ -86,6 +87,7 @@ rbind(MLR_fit1 |> collect_metrics() |> filter(.metric == "rmse"),
   mutate(Model = c("Model 1", "Model 2", "Model 3")) |>
   select(Model, mean, n, std_err)
 ```
+
 ```{r}
 MLR_final <-  MLR_wkf3 |>
   fit(bike_train)
@@ -204,7 +206,7 @@ summary(usual_fit)
 
 - Logistic regression useful when we have a binary response variable
 
-- Attempting to do linear regression with binary response doesn't work.  Here's an example:
+- Attempting to do linear regression with binary response doesn't work. Here's an example:
 
 ```{r}
 library(tidyverse)
@@ -255,6 +257,7 @@ ggplot(data = heart_data, aes(x = Age, y = HeartDisease)) +
   geom_smooth(method = "lm", color = "Green")
 # now the line makes a little more sense with these groups shown on the graph
 ```
+
 - Note, line fits will have regions where resonse (proportion) is less than 0 or greater than 1!
 
 - Let's do a logistic regression model fit
@@ -341,6 +344,7 @@ mean(heart_train$HeartDisease == "1")
 
 # sanity check, accuracy should at least beat .56
 ```
+
 - Confusion Matrix on third workflow gives us breakdown of the correct and incorrect predictions
 
 ```{r}
@@ -352,6 +356,7 @@ conf_mat(heart_train |> mutate(estimate = LR_train_fit |> predict(heart_train) |
 ```
 
 - Now evaluate our model on the test set: metrics and confusion matrix
+
 ```{r}
 LR3_wkf |>
   last_fit(heart_split, metrics = metric_set(accuracy, mn_log_loss)) |>
@@ -359,6 +364,7 @@ LR3_wkf |>
 
 conf_mat(heart_test |> mutate(estimate = LR_train_fit |> predict(heart_test) |> pull()), HeartDisease, estimate)
 ```
+
 - Do a final fit of the favored model using the full data set
 
 ```{r}
@@ -409,6 +415,7 @@ bike_data <- read_csv("https://www4.stat.ncsu.edu/~online/datasets/bikeDetails.c
          owners = ifelse(owner == "1st owner", "single", "multiple")) |>
   select(-selling_price)
 ```
+
 ```{r}
 #save creation of new variables for now!
 bike_split <- initial_split(bike_data, prop = 0.7)
@@ -431,7 +438,7 @@ tree_rec <- recipe(log_selling_price ~ ., data = bike_train) |>
 tree_rec
 ```
 
-- Note:  no need for interaction terms with the tree model.  The tree method inherently includes these relationships due to the splitting
+- Note: no need for interaction terms with the tree model. The tree method inherently includes these relationships due to the splitting
 
 ```{r}
 tree_mod <- decision_tree(tree_depth = tune(), # maximum number of splits from root to leaf
@@ -446,7 +453,6 @@ tree_wkf <- workflow() |>
   add_recipe(tree_rec) |>
   add_model(tree_mod)
 ```
-
 
 ```{r}
 # without specifying the tuning options, they are selected randomly (10 total combinations)
@@ -496,7 +502,6 @@ tree_fits |>
   filter(.metric == "rmse") |>
   arrange(mean)
 ```
-
 
 - so the lowest RMSE tree model uses 1e-3 cost_complexity, tree_depth of 4, and min_n of 20
 
@@ -617,5 +622,214 @@ rbind(
 final_model <- MLR_wkf3 |>
   fit(bike_data) 
 tidy(final_model)
+```
+
+## Ensemble Trees: Bagging and Random Forests
+
+- Numeric Response: MLR, Penalized MLR (LASSO), Regression Trees
+
+- Categorical Response: Logistic Regression (Log-Loss) and Classification Trees
+
+- Ensemble tree methods:
+
+  - Bagging (bootstrap aggregation)
+
+  - Random Forests (extension of bagging)
+
+  - Boosting (slow training of trees)
+
+- Parametric: data comes from model distribution (i.e. with parameters like mean, stdev, etc.)
+
+- Non-Parametric: treats the sample as the population, and can resample with replacement
+
+```{r}
+# Read in the heart disease data
+
+library(tidyverse)
+library(tidymodels)
+heart_data <- read_csv("https://www4.stat.ncsu.edu/online/datasets/heart.csv") |>
+  filter(RestingBP > 0) #remove one value
+heart_data <- heart_data |> mutate(HeartDisease = factor(HeartDisease))
+heart_split <- initial_split(heart_data, prop = 0.8)
+heart_train <- training(heart_split)
+heart_test <- testing(heart_split)
+heart_CV_folds <- vfold_cv(heart_train, 10)
+heart_data
+
+# Note:  Response variable is HeartDisease, which is binary
+```
+
+```{r}
+# We can use the same recipe from our linear regression
+
+LR3_rec <- recipe(HeartDisease ~ Age + Sex + ChestPainType + RestingBP + RestingECG + MaxHR + ExerciseAngina, 
+                  data = heart_train) |>
+  step_normalize(all_numeric(), -HeartDisease) |>
+  step_dummy(Sex, ChestPainType, RestingECG, ExerciseAngina)
+LR3_rec |> 
+  prep(heart_train) |> 
+  bake(heart_train) |> 
+  colnames()
+```
+
+```{r}
+# bagged tree model setup
+bag_spec <- bag_tree(tree_depth = 5, min_n = 10, cost_complexity = tune()) |>
+  set_engine("rpart") |>
+  set_mode("classification")
+```
+
+```{r}
+# Create workflow
+
+#install baguette package if not already done!
+library(baguette)
+bag_wkf <- workflow() |>
+  add_recipe(LR3_rec) |>
+  add_model(bag_spec)
+```
+
+```{r}
+# Fit to our folds
+
+# Note:  cross validation is not really needed because of how bagging works
+bag_fit <- bag_wkf |>
+  tune_grid(resamples = heart_CV_folds, 
+            grid = grid_regular(cost_complexity(),
+                                levels = 15),
+            metrics = metric_set(accuracy, mn_log_loss))
+bag_fit
+```
+
+```{r}
+# check our metrics across the tuned parameter cost_complexity
+
+bag_fit |>
+  collect_metrics() |>
+  filter(.metric == "mn_log_loss") |> 
+  arrange(mean)
+```
+
+```{r}
+# get the best tuning parameter (cost_complexity )
+bag_best_params <- select_best(bag_fit, metric = "mn_log_loss")
+bag_best_params
+```
+
+```{r}
+# refit on the entire training set
+
+bag_final_wkf <- bag_wkf |>
+  finalize_workflow(bag_best_params)
+bag_final_fit <- bag_final_wkf |>
+  last_fit(heart_split, metrics = metric_set(accuracy, mn_log_loss))
+```
+
+- For comparison, consider the Log Regresion model from before
+
+```{r}
+LR_spec <- logistic_reg() |>
+  set_engine("glm")
+LR3_wkf <- workflow() |>
+  add_recipe(LR3_rec) |>
+  add_model(LR_spec)
+LR3_fit <- LR3_wkf |>
+  fit_resamples(heart_CV_folds, metrics = metric_set(accuracy, mn_log_loss))
+rbind(LR3_fit |> collect_metrics(),
+      bag_fit |> collect_metrics() |>
+        filter(cost_complexity == bag_best_params$cost_complexity) |> 
+        select(-cost_complexity))
+```
+
+- Test both models on the test set
+
+```{r}
+#test on the test set!
+LR_final_fit <- LR3_wkf |>
+  last_fit(heart_split, metrics = metric_set(accuracy, mn_log_loss)) 
+LR_final_fit |> collect_metrics()
+
+bag_final_fit |> collect_metrics()
+```
+
+```{r}
+# refit on entire data set
+
+bag_full_fit <- bag_final_wkf |>
+  fit(heart_data)
+bag_full_fit
+
+```
+
+```{r}
+# plot the variable importance
+
+bag_final_model <- extract_fit_engine(bag_full_fit) 
+bag_final_model$imp |>
+  mutate(term = factor(term, levels = term)) |>
+  ggplot(aes(x = term, y = value)) + 
+  geom_bar(stat ="identity") +
+  coord_flip()
+```
+
+- Now Random Forests
+
+  - Similar to bagging, except the splits of the trees are considered using a random subset of the predictors each time
+  
+  - Allows for consideration of more predictors and better predictions overall
+
+```{r}
+# set up random forest model
+library(ranger)
+rf_spec <- rand_forest(mtry = tune()) |> # mtry: number of predictors is the tuning parameter
+  set_engine("ranger") |>
+  set_mode("classification")
+```
+
+```{r}
+# use same workflow as before
+rf_wkf <- workflow() |>
+  add_recipe(LR3_rec) |>
+  add_model(rf_spec)
+```
+
+```{r}
+# again fitting with CV, although CV is not needed for bagging and forests
+rf_fit <- rf_wkf |>
+  tune_grid(resamples = heart_CV_folds, 
+            grid = tibble(mtry = 1:7), # trying values 1 to 7 of mtry
+            metrics = metric_set(accuracy, mn_log_loss))
+```
+
+```{r}
+# Check our metrics
+rf_fit |>
+  collect_metrics() |>
+  filter(.metric == "mn_log_loss") |> 
+  arrange(mean)
+```
+
+```{r}
+# get best tuning parameter
+rf_best_params <- select_best(rf_fit, metric = "mn_log_loss")
+rf_best_params
+```
+
+```{r}
+# refit on the full training set
+
+rf_final_wkf <- rf_wkf |>
+  finalize_workflow(rf_best_params)
+rf_final_fit <- rf_final_wkf |>
+  last_fit(heart_split, metrics = metric_set(accuracy, mn_log_loss))
+```
+
+
+- Compare all models on the test set:
+
+```{r}
+LR_final_fit |> collect_metrics()
+bag_final_fit |> collect_metrics()
+rf_final_fit |> collect_metrics()
 ```
 
